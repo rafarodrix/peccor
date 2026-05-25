@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { InviteUserSchema, UpdateRoleSchema } from "@/lib/validations/user";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import type { PrismaTransactionClient } from "@/server/lib/prisma-types";
 import { revalidatePaths } from "@/server/lib/revalidate-paths";
 import { requirePermission, requireTenant } from "@/server/services/tenant";
 
@@ -19,7 +20,7 @@ export async function inviteUser(data: unknown): Promise<ActionResult> {
   const { name, email, password, role: newRole } = parsed.data;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: PrismaTransactionClient) => {
       let user = await tx.user.findUnique({ where: { email } });
 
       if (!user) {

@@ -1,11 +1,13 @@
-import { auth } from "@/lib/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/api/auth"];
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
+  const isLoggedIn = Boolean(req.auth);
+  const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   if (!isLoggedIn && !isPublic) {
     return Response.redirect(new URL("/login", req.url));

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { calcPurchaseTotalCost } from "@/lib/utils";
 import { PurchaseSchema } from "@/lib/validations/purchase";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import type { PrismaTransactionClient } from "@/server/lib/prisma-types";
 import { revalidatePaths } from "@/server/lib/revalidate-paths";
 import { requirePermission } from "@/server/services/tenant";
 
@@ -31,7 +32,7 @@ export async function createPurchase(
     rest.otherCosts
   );
 
-  const purchase = await prisma.$transaction(async (tx) => {
+  const purchase = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
     const createdPurchase = await tx.purchase.create({
       data: {
         ...rest,
