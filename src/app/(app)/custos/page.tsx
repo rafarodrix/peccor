@@ -13,15 +13,24 @@ import { PayCostButton } from "./pay-cost-button";
 type CostRow = Awaited<ReturnType<typeof getCostsPageData>>["costs"][number];
 
 const categoryLabels: Record<string, string> = {
-  FUNCIONARIO: "Funcionário", ENERGIA: "Energia", ARRENDAMENTO: "Arrendamento",
-  RACAO: "Ração", SAL_MINERAL: "Sal Mineral", VACINA: "Vacina",
-  MEDICAMENTO: "Medicamento", FRETE: "Frete", MANUTENCAO: "Manutenção",
-  COMISSAO: "Comissão", COMBUSTIVEL: "Combustível", VETERINARIO: "Veterinário", OUTROS: "Outros",
+  FUNCIONARIO: "Funcionário",
+  ENERGIA: "Energia",
+  ARRENDAMENTO: "Arrendamento",
+  RACAO: "Ração",
+  SAL_MINERAL: "Sal Mineral",
+  VACINA: "Vacina",
+  MEDICAMENTO: "Medicamento",
+  FRETE: "Frete",
+  MANUTENCAO: "Manutenção",
+  COMISSAO: "Comissão",
+  COMBUSTIVEL: "Combustível",
+  VETERINARIO: "Veterinário",
+  OUTROS: "Outros",
 };
 
 export default async function CustosPage() {
   const { tenant } = await requireTenant();
-  const { farms, lots, costs } = await getCostsPageData(tenant.id);
+  const { farms, lots, costs, chartOfAccounts } = await getCostsPageData(tenant.id);
 
   const totalPaid = costs
     .filter((c: CostRow) => c.status === "PAID")
@@ -41,7 +50,7 @@ export default async function CustosPage() {
       <Header
         title="Custos"
         subtitle="Controle de custos fixos e variáveis"
-        actions={<CostDialog farms={farms} lots={lots} />}
+        actions={<CostDialog farms={farms} lots={lots} chartOfAccounts={chartOfAccounts} />}
       />
       <div className="p-6 space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
@@ -65,7 +74,7 @@ export default async function CustosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Descrição</TableHead>
-                <TableHead>Categoria</TableHead>
+                <TableHead>Categoria / Conta Contábil</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Fazenda / Lote</TableHead>
                 <TableHead>Data</TableHead>
@@ -82,32 +91,49 @@ export default async function CustosPage() {
                     Nenhum custo registrado ainda.
                   </TableCell>
                 </TableRow>
-              ) : costs.map((cost: CostRow) => (
-                <TableRow key={cost.id}>
-                  <TableCell className="font-medium">{cost.description}</TableCell>
-                  <TableCell>{categoryLabels[cost.category] ?? cost.category}</TableCell>
-                  <TableCell>
-                    <Badge variant={cost.type === "FIXED" ? "default" : "secondary"}>
-                      {cost.type === "FIXED" ? "Fixo" : "Variável"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">{cost.farm.name}</div>
-                    {cost.lot && <div className="text-xs text-muted-foreground">{cost.lot.code}</div>}
-                  </TableCell>
-                  <TableCell>{formatDate(cost.date)}</TableCell>
-                  <TableCell>{cost.dueDate ? formatDate(cost.dueDate) : "—"}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(Number(cost.amount))}</TableCell>
-                  <TableCell>
-                    <Badge variant={cost.status === "PAID" ? "success" : cost.status === "OPEN" ? "warning" : "secondary"}>
-                      {cost.status === "PAID" ? "Pago" : cost.status === "OPEN" ? "Em aberto" : "Cancelado"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {cost.status === "OPEN" && <PayCostButton id={cost.id} />}
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : (
+                costs.map((cost: CostRow) => (
+                  <TableRow key={cost.id}>
+                    <TableCell className="font-medium">{cost.description}</TableCell>
+                    <TableCell>
+                      {cost.chartOfAccount ? (
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm text-foreground">
+                            {cost.chartOfAccount.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-muted-foreground leading-none mt-0.5">
+                            {cost.chartOfAccount.code}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm">
+                          {categoryLabels[cost.category] ?? cost.category}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={cost.type === "FIXED" ? "default" : "secondary"}>
+                        {cost.type === "FIXED" ? "Fixo" : "Variável"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{cost.farm.name}</div>
+                      {cost.lot && <div className="text-xs text-muted-foreground">{cost.lot.code}</div>}
+                    </TableCell>
+                    <TableCell>{formatDate(cost.date)}</TableCell>
+                    <TableCell>{cost.dueDate ? formatDate(cost.dueDate) : "—"}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(Number(cost.amount))}</TableCell>
+                    <TableCell>
+                      <Badge variant={cost.status === "PAID" ? "success" : cost.status === "OPEN" ? "warning" : "secondary"}>
+                        {cost.status === "PAID" ? "Pago" : cost.status === "OPEN" ? "Em aberto" : "Cancelado"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {cost.status === "OPEN" && <PayCostButton id={cost.id} />}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

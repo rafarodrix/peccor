@@ -6,7 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SaleSchema, type SaleInput } from "@/lib/validations/sale";
@@ -39,91 +40,88 @@ export function SaleForm({ farms, lots, onSuccess }: Props) {
   function onSubmit(data: SaleInput) {
     startTransition(async () => {
       const result = await createSale(data);
-      if (!result.error) onSuccess?.();
-      else toast.error(result.error);
+      if (!result.error) {
+        toast.success("Venda registrada com sucesso!");
+        onSuccess?.();
+      } else {
+        toast.error(result.error);
+      }
     });
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Fazenda *</Label>
-          <Select value={watch("farmId")} onValueChange={(v) => { setValue("farmId", v); setValue("lotId", null); }}>
+        <FormField label="Fazenda" required error={errors.farmId?.message}>
+          <Select 
+            value={watch("farmId")} 
+            onValueChange={(v) => { setValue("farmId", v); setValue("lotId", null); }}
+          >
             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
             <SelectContent>
               {farms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          {errors.farmId && <p className="text-xs text-destructive">{errors.farmId.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <Label>Lote (opcional)</Label>
+        </FormField>
+
+        <FormField label="Lote Origem" error={errors.lotId?.message}>
           <Select value={watch("lotId") ?? ""} onValueChange={(v) => setValue("lotId", v || null)}>
             <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="">Nenhum (avulso)</SelectItem>
               {filteredLots.map((l) => <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Comprador *</Label>
+        <FormField label="Comprador" required error={errors.customerName?.message}>
           <Input {...register("customerName")} placeholder="Frigorífico Mineiro" />
-          {errors.customerName && <p className="text-xs text-destructive">{errors.customerName.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <Label>Data *</Label>
-          <Input type="date" {...register("date")} />
-          {errors.date && <p className="text-xs text-destructive">{errors.date.message}</p>}
-        </div>
+        </FormField>
+
+        <FormField label="Data da Venda" required error={errors.date?.message}>
+          <DatePicker value={watch("date")} onChange={(e) => setValue("date", e.target.value)} />
+        </FormField>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="grid gap-2">
-          <Label>Quantidade (cabeças) *</Label>
+        <FormField label="Quantidade (cabeças)" required error={errors.quantity?.message}>
           <Input type="number" {...register("quantity")} placeholder="40" />
-          {errors.quantity && <p className="text-xs text-destructive">{errors.quantity.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <Label>Peso total (kg)</Label>
+        </FormField>
+
+        <FormField label="Peso total (kg)" error={errors.totalWeight?.message}>
           <Input type="number" step="0.1" {...register("totalWeight")} placeholder="18000" />
-        </div>
-        <div className="grid gap-2">
-          <Label>Preço por arroba (R$)</Label>
-          <Input type="number" step="0.01" {...register("pricePerArroba")} placeholder="310" />
-        </div>
+        </FormField>
+
+        <FormField label="Preço por arroba (@)" error={errors.pricePerArroba?.message}>
+          <Input type="number" step="0.01" {...register("pricePerArroba")} placeholder="310,00" />
+        </FormField>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Valor dos animais (R$) *</Label>
-          <Input type="number" step="0.01" {...register("animalValue")} placeholder="372000" />
-          {errors.animalValue && <p className="text-xs text-destructive">{errors.animalValue.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <Label>Frete (R$)</Label>
-          <Input type="number" step="0.01" {...register("freightValue")} placeholder="0" />
-        </div>
+        <FormField label="Valor dos animais (R$)" required error={errors.animalValue?.message}>
+          <Input type="number" step="0.01" {...register("animalValue")} placeholder="372.000,00" />
+        </FormField>
+
+        <FormField label="Frete (R$)" error={errors.freightValue?.message}>
+          <Input type="number" step="0.01" {...register("freightValue")} placeholder="0,00" />
+        </FormField>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Comissão (R$)</Label>
-          <Input type="number" step="0.01" {...register("commissionValue")} placeholder="0" />
-        </div>
-        <div className="grid gap-2">
-          <Label>Desconto (R$)</Label>
-          <Input type="number" step="0.01" {...register("discountValue")} placeholder="0" />
-        </div>
+        <FormField label="Comissão (R$)" error={errors.commissionValue?.message}>
+          <Input type="number" step="0.01" {...register("commissionValue")} placeholder="0,00" />
+        </FormField>
+
+        <FormField label="Desconto (R$)" error={errors.discountValue?.message}>
+          <Input type="number" step="0.01" {...register("discountValue")} placeholder="0,00" />
+        </FormField>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Forma de pagamento</Label>
-          <Select value={watch("paymentMethod") ?? ""} onValueChange={(v) => setValue("paymentMethod", v)}>
+        <FormField label="Forma de pagamento" error={errors.paymentMethod?.message}>
+          <Select value={watch("paymentMethod") ?? ""} onValueChange={(v) => setValue("paymentMethod", v || undefined)}>
             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="PIX">PIX</SelectItem>
@@ -133,17 +131,19 @@ export function SaleForm({ farms, lots, onSuccess }: Props) {
               <SelectItem value="DINHEIRO">Dinheiro</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label>Vencimento</Label>
-          <Input type="date" {...register("dueDate")} />
-        </div>
+        </FormField>
+
+        <FormField label="Vencimento" error={errors.dueDate?.message}>
+          <DatePicker 
+            value={watch("dueDate") ?? ""} 
+            onChange={(e) => setValue("dueDate", e.target.value || null)} 
+          />
+        </FormField>
       </div>
 
-      <div className="grid gap-2">
-        <Label>Observações</Label>
-        <Textarea {...register("notes")} rows={2} />
-      </div>
+      <FormField label="Observações" error={errors.notes?.message}>
+        <Textarea {...register("notes")} rows={2} placeholder="Detalhes do contrato..." />
+      </FormField>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onSuccess}>Cancelar</Button>

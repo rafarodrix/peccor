@@ -15,7 +15,7 @@ const CreateAccountSchema = z.object({
 });
 
 export async function createChartOfAccount(data: unknown): Promise<ActionResult> {
-  const { error, tenantUser } = await requirePermission("settings:read");
+  const { error, tenantUser } = await requirePermission("finance:settings");
   if (error || !tenantUser) return fail(error ?? "Sem permissão", "FORBIDDEN");
 
   const parsed = CreateAccountSchema.safeParse(data);

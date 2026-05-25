@@ -17,9 +17,14 @@ export async function createCost(data: unknown) {
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
-  const { date, dueDate, ...rest } = parsed.data;
+  const { date, dueDate, chartOfAccountId, ...rest } = parsed.data;
   await prisma.cost.create({
-    data: { ...rest, date: new Date(date), dueDate: dueDate ? new Date(dueDate) : null },
+    data: {
+      ...rest,
+      date: new Date(date),
+      dueDate: dueDate ? new Date(dueDate) : null,
+      chartOfAccountId: chartOfAccountId || null,
+    },
   });
 
   revalidatePath("/custos");

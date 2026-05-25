@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -16,7 +18,7 @@ import {
   hasPermission,
 } from "@/lib/permissions";
 import type { TenantRole } from "@prisma/client";
-import { Check, X } from "lucide-react";
+import { Check, X, ChevronLeft } from "lucide-react";
 
 const ROLES: TenantRole[] = [
   "OWNER",
@@ -45,6 +47,14 @@ export default function PerfisPage() {
       <Header
         title="Perfis de acesso"
         subtitle="Veja as permissões de cada perfil disponível no sistema"
+        actions={
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/configuracoes">
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Link>
+          </Button>
+        }
       />
       <div className="p-6 space-y-6">
         {/* Cards de resumo por perfil */}

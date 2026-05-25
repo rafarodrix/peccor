@@ -4,6 +4,7 @@ import { CostType, CostCategory } from "@prisma/client";
 export const CostSchema = z.object({
   farmId: z.string().min(1, "Fazenda obrigatória"),
   lotId: z.string().optional().nullable(),
+  chartOfAccountId: z.string().optional().nullable(),
   category: z.nativeEnum(CostCategory),
   type: z.nativeEnum(CostType),
   description: z.string().min(2, "Descrição obrigatória"),

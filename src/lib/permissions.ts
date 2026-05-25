@@ -46,6 +46,7 @@ export type Permission =
   | "health:edit"
   // Financeiro
   | "finance:read"
+  | "finance:settings"
   // Relatórios
   | "reports:read"
   // Configurações / Usuários
@@ -72,6 +73,7 @@ const ROLE_PERMISSIONS: Record<TenantRole, Permission[]> = {
     "costs:read", "costs:create", "costs:edit", "costs:delete", "costs:pay",
     "health:read", "health:create", "health:edit",
     "finance:read",
+    "finance:settings",
     "reports:read",
     "settings:read",
     "users:read", "users:invite", "users:edit_role", "users:remove",
@@ -88,6 +90,7 @@ const ROLE_PERMISSIONS: Record<TenantRole, Permission[]> = {
     "costs:read", "costs:create", "costs:edit", "costs:delete", "costs:pay",
     "health:read", "health:create", "health:edit",
     "finance:read",
+    "finance:settings",
     "reports:read",
     "settings:read",
     "users:read", "users:invite", "users:edit_role",
@@ -117,6 +120,7 @@ const ROLE_PERMISSIONS: Record<TenantRole, Permission[]> = {
     "sales:read", "sales:create", "sales:edit",
     "costs:read", "costs:create", "costs:edit", "costs:pay",
     "finance:read",
+    "finance:settings",
     "reports:read",
     "settings:read",
   ],
@@ -230,7 +234,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   },
   {
     label: "Financeiro",
-    permissions: ["finance:read", "reports:read"],
+    permissions: ["finance:read", "reports:read", "finance:settings"],
   },
   {
     label: "Usuários",
@@ -276,6 +280,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   "health:create": "Criar",
   "health:edit": "Editar",
   "finance:read": "Ver financeiro",
+  "finance:settings": "Gerenciar plano de contas",
   "reports:read": "Ver relatórios",
   "settings:read": "Ver configurações",
   "users:read": "Listar usuários",
