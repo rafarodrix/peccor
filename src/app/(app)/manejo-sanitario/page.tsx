@@ -1,93 +1,46 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
+import { requireTenant } from "@/server/services/tenant";
+import { prisma } from "@/lib/prisma";
+import { HealthDialog } from "./health-dialog";
 
 const eventTypeLabels: Record<string, string> = {
-  VACINA: "Vacina",
-  VERMIFUGO: "Vermífugo",
-  MEDICAMENTO: "Medicamento",
-  DOENCA: "Doença",
-  MORTE: "Morte",
-  OUTRO: "Outro",
+  VACINA: "Vacina", VERMIFUGO: "Vermífugo", MEDICAMENTO: "Medicamento",
+  DOENCA: "Doença", MORTE: "Morte", OUTRO: "Outro",
 };
-
 const eventTypeColors: Record<string, "default" | "success" | "warning" | "destructive" | "secondary"> = {
-  VACINA: "success",
-  VERMIFUGO: "default",
-  MEDICAMENTO: "warning",
-  DOENCA: "destructive",
-  MORTE: "destructive",
-  OUTRO: "secondary",
+  VACINA: "success", VERMIFUGO: "default", MEDICAMENTO: "warning",
+  DOENCA: "destructive", MORTE: "destructive", OUTRO: "secondary",
 };
 
-// Dados mock para MVP
-const mockHealthEvents = [
-  {
-    id: "1",
-    date: new Date("2026-05-12"),
-    type: "VACINA",
-    description: "Vacinação antiaftosa",
-    productName: "Aftovax",
-    dosage: "2ml",
-    animalTag: null,
-    lotCode: "RECRIA-2026-01",
-    farmName: "Fazenda Santa Maria",
-    withdrawalDays: 0,
-    responsible: "Dr. Carlos Vet",
-  },
-  {
-    id: "2",
-    date: new Date("2026-05-08"),
-    type: "VERMIFUGO",
-    description: "Vermifugação do lote",
-    productName: "Ivermectina 1%",
-    dosage: "1ml/50kg",
-    animalTag: null,
-    lotCode: "ENGORDA-2026-01",
-    farmName: "Fazenda Santa Maria",
-    withdrawalDays: 30,
-    responsible: "João Silva",
-  },
-  {
-    id: "3",
-    date: new Date("2026-05-03"),
-    type: "DOENCA",
-    description: "Pneumonia - tratamento",
-    productName: "Oxitetraciclina",
-    dosage: "10mg/kg",
-    animalTag: "BR-0015",
-    lotCode: "ENGORDA-2026-01",
-    farmName: "Fazenda Santa Maria",
-    withdrawalDays: 28,
-    responsible: "Dr. Carlos Vet",
-  },
-];
+export default async function ManejoSanitarioPage() {
+  const { tenant } = await requireTenant();
 
-export default function ManejoSanitarioPage() {
+  const animals = await prisma.animal.findMany({
+    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
+    select: { id: true, tag: true, farmId: true },
+  });
+  const healthEvents = await prisma.healthEvent.findMany({
+    where: { animal: { farm: { tenantId: tenant.id } } },
+    include: {
+      animal: {
+        select: { tag: true, lot: { select: { code: true } }, farm: { select: { name: true } } },
+      },
+    },
+    orderBy: { date: "desc" },
+    take: 200,
+  });
+
   return (
     <>
       <Header
         title="Manejo Sanitário"
         subtitle="Controle de vacinas, medicamentos e ocorrências"
-        actions={
-          <Button asChild>
-            <Link href="/manejo-sanitario/novo">
-              <Plus className="h-4 w-4" />
-              Registrar Evento
-            </Link>
-          </Button>
-        }
+        actions={<HealthDialog animals={animals} />}
       />
       <div className="p-6">
         <div className="rounded-lg border bg-card">
@@ -106,29 +59,37 @@ export default function ManejoSanitarioPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockHealthEvents.map((event) => (
+              {healthEvents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    Nenhum evento sanitário registrado ainda.
+                  </TableCell>
+                </TableRow>
+              ) : healthEvents.map((event) => (
                 <TableRow key={event.id}>
                   <TableCell>{formatDate(event.date)}</TableCell>
                   <TableCell>
                     <Badge variant={eventTypeColors[event.type]}>
-                      {eventTypeLabels[event.type]}
+                      {eventTypeLabels[event.type] ?? event.type}
                     </Badge>
                   </TableCell>
                   <TableCell className="font-medium">{event.description}</TableCell>
-                  <TableCell>{event.productName ?? "-"}</TableCell>
-                  <TableCell>{event.dosage ?? "-"}</TableCell>
+                  <TableCell>{event.productName ?? "—"}</TableCell>
+                  <TableCell>{event.dosage ?? "—"}</TableCell>
                   <TableCell>
-                    {event.animalTag ? (
-                      <span className="font-mono text-sm">{event.animalTag}</span>
+                    {event.animal.tag ? (
+                      <span className="font-mono text-sm">{event.animal.tag}</span>
                     ) : (
-                      <span className="text-sm text-muted-foreground">{event.lotCode}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {event.animal.lot?.code ?? "—"}
+                      </span>
                     )}
                   </TableCell>
-                  <TableCell>{event.farmName}</TableCell>
+                  <TableCell>{event.animal.farm.name}</TableCell>
                   <TableCell className="text-right">
-                    {event.withdrawalDays > 0 ? event.withdrawalDays : "-"}
+                    {event.withdrawalDays && event.withdrawalDays > 0 ? event.withdrawalDays : "—"}
                   </TableCell>
-                  <TableCell>{event.responsible}</TableCell>
+                  <TableCell>{event.responsible ?? "—"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

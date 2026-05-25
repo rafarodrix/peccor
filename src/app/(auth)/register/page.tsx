@@ -1,11 +1,50 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Beef } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { registerUser } from "@/server/actions/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+
+    startTransition(async () => {
+      setError("");
+      const result = await registerUser({
+        orgName: form.get("orgName"),
+        name: form.get("name"),
+        email: form.get("email"),
+        password: form.get("password"),
+      });
+
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      // Auto-login after registration
+      await signIn("credentials", {
+        email: form.get("email"),
+        password: form.get("password"),
+        redirect: false,
+      });
+
+      router.push("/dashboard");
+    });
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/50 p-4">
       <div className="w-full max-w-sm">
@@ -22,25 +61,26 @@ export default function RegisterPage() {
             <CardDescription>Teste grátis por 14 dias, sem cartão</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="org">Nome da organização / fazenda</Label>
-                <Input id="org" placeholder="Ex: Grupo Agro Rodrigues" />
+                <Label htmlFor="orgName">Nome da organização / fazenda</Label>
+                <Input id="orgName" name="orgName" placeholder="Ex: Grupo Agro Rodrigues" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="name">Seu nome</Label>
-                <Input id="name" placeholder="Rafael Rodrigues" />
+                <Input id="name" name="name" placeholder="Rafael Rodrigues" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="seu@email.com" />
+                <Input id="email" name="email" type="email" placeholder="seu@email.com" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input id="password" type="password" placeholder="••••••••" />
+                <Input id="password" name="password" type="password" placeholder="Mínimo 8 caracteres" required />
               </div>
-              <Button type="submit" className="w-full">
-                Criar conta grátis
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="w-full" disabled={pending}>
+                {pending ? "Criando conta..." : "Criar conta grátis"}
               </Button>
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">

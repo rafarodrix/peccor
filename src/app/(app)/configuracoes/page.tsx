@@ -1,66 +1,103 @@
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Users, ShieldCheck } from "lucide-react";
+import { requireTenant } from "@/server/services/tenant";
+import { prisma } from "@/lib/prisma";
 
-export default function ConfiguracoesPage() {
+const PLAN_LABELS: Record<string, string> = {
+  FREE: "Gratuito", STARTER: "Starter", PRO: "Pro", ENTERPRISE: "Enterprise",
+};
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "Proprietário", ADMIN: "Administrador", MANAGER: "Gerente",
+  FINANCE: "Financeiro", VETERINARY: "Veterinário", OPERATOR: "Operador", VIEWER: "Visualizador",
+};
+
+export default async function ConfiguracoesPage() {
+  const { tenant } = await requireTenant();
+
+  const [subscription, users, farmCount, animalCount] = await Promise.all([
+    prisma.subscription.findUnique({ where: { tenantId: tenant.id } }),
+    prisma.tenantUser.findMany({
+      where: { tenantId: tenant.id, active: true },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.farm.count({ where: { tenantId: tenant.id, active: true } }),
+    prisma.animal.count({ where: { farm: { tenantId: tenant.id }, status: "ACTIVE" } }),
+  ]);
+
   return (
     <>
       <Header title="Configurações" subtitle="Gerencie sua conta e preferências" />
       <div className="p-6 space-y-6 max-w-3xl">
         <Card>
           <CardHeader>
-            <CardTitle>Conta / Tenant</CardTitle>
-            <CardDescription>Informações da sua organização</CardDescription>
+            <CardTitle>Organização</CardTitle>
+            <CardDescription>Dados da sua organização no sistema</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2">
-              <Label>Nome da organização</Label>
-              <Input defaultValue="Grupo Agro Rodrigues" />
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between py-1">
+              <span className="text-sm text-muted-foreground">Nome</span>
+              <span className="font-medium">{tenant.name}</span>
             </div>
-            <div className="grid gap-2">
-              <Label>CNPJ / CPF</Label>
-              <Input defaultValue="12.345.678/0001-90" />
+            <div className="flex items-center justify-between py-1">
+              <span className="text-sm text-muted-foreground">Identificador</span>
+              <span className="font-mono text-sm">{tenant.slug}</span>
             </div>
-            <div className="grid gap-2">
-              <Label>Email</Label>
-              <Input defaultValue="contato@agrorodrigues.com.br" type="email" />
-            </div>
-            <Button>Salvar alterações</Button>
+            {tenant.document && (
+              <div className="flex items-center justify-between py-1">
+                <span className="text-sm text-muted-foreground">CNPJ/CPF</span>
+                <span className="font-medium">{tenant.document}</span>
+              </div>
+            )}
+            {tenant.email && (
+              <div className="flex items-center justify-between py-1">
+                <span className="text-sm text-muted-foreground">E-mail</span>
+                <span className="font-medium">{tenant.email}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
             <CardTitle>Plano SaaS</CardTitle>
-            <CardDescription>Seu plano atual e limites de uso</CardDescription>
+            <CardDescription>Seu plano atual e uso do sistema</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-lg">Plano PRO</span>
-                  <Badge variant="success">Ativo</Badge>
+                  <span className="font-semibold text-lg">
+                    Plano {subscription ? PLAN_LABELS[subscription.plan] ?? subscription.plan : "Gratuito"}
+                  </span>
+                  <Badge variant={subscription?.active ? "success" : "secondary"}>
+                    {subscription?.active ? "Ativo" : "Inativo"}
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mt-1">Renovação em 30/06/2026</p>
+                {subscription?.renewsAt && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Renovação em {subscription.renewsAt.toLocaleDateString("pt-BR")}
+                  </p>
+                )}
               </div>
-              <Button variant="outline">Alterar plano</Button>
             </div>
             <Separator className="my-4" />
             <div className="grid grid-cols-3 gap-4 text-center">
               <div className="rounded-lg bg-muted p-3">
-                <p className="text-2xl font-bold">450</p>
-                <p className="text-xs text-muted-foreground">de 2.000 animais</p>
+                <p className="text-2xl font-bold">{animalCount}</p>
+                <p className="text-xs text-muted-foreground">animais ativos</p>
               </div>
               <div className="rounded-lg bg-muted p-3">
-                <p className="text-2xl font-bold">2</p>
+                <p className="text-2xl font-bold">{farmCount}</p>
                 <p className="text-xs text-muted-foreground">fazendas ativas</p>
               </div>
               <div className="rounded-lg bg-muted p-3">
-                <p className="text-2xl font-bold">5</p>
+                <p className="text-2xl font-bold">{users.length}</p>
                 <p className="text-xs text-muted-foreground">usuários</p>
               </div>
             </div>
@@ -68,30 +105,38 @@ export default function ConfiguracoesPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Usuários</CardTitle>
-            <CardDescription>Membros com acesso ao sistema</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Usuários e Acessos</CardTitle>
+              <CardDescription>Membros com acesso ao sistema</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/configuracoes/perfis">
+                  <ShieldCheck className="h-4 w-4" />
+                  Perfis
+                </Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/configuracoes/usuarios">
+                  <Users className="h-4 w-4" />
+                  Gerenciar
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {[
-                { name: "Rafael Rodrigues", email: "rafael@agrorodrigues.com.br", role: "OWNER" },
-                { name: "Maria Souza", email: "maria@agrorodrigues.com.br", role: "MANAGER" },
-                { name: "Dr. Carlos Vet", email: "carlos@vet.com.br", role: "VETERINARY" },
-                { name: "João Silva", email: "joao@agrorodrigues.com.br", role: "OPERATOR" },
-              ].map((user) => (
-                <div key={user.email} className="flex items-center justify-between py-2">
+            <div className="space-y-0">
+              {users.map((tu) => (
+                <div key={tu.id} className="flex items-center justify-between py-3 border-b last:border-0">
                   <div>
-                    <p className="font-medium text-sm">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    <p className="font-medium text-sm">{tu.user.name}</p>
+                    <p className="text-xs text-muted-foreground">{tu.user.email}</p>
                   </div>
-                  <Badge variant="outline">{user.role}</Badge>
+                  <Badge variant="outline">{ROLE_LABELS[tu.role] ?? tu.role}</Badge>
                 </div>
               ))}
             </div>
-            <Button variant="outline" className="mt-4 w-full">
-              Convidar usuário
-            </Button>
           </CardContent>
         </Card>
       </div>

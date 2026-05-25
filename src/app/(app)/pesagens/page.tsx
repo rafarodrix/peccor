@@ -1,72 +1,44 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Header } from "@/components/layout/header";
-import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { requireTenant } from "@/server/services/tenant";
+import { prisma } from "@/lib/prisma";
+import { WeighingDialog } from "./weighing-dialog";
 
-// Dados mock para MVP
-const mockWeighings = [
-  {
-    id: "1",
-    date: new Date("2026-05-10"),
-    lotCode: "RECRIA-2026-01",
-    animalTag: null,
-    weight: 265,
-    previousWeight: 240,
-    weightGain: 25,
-    daysSinceLast: 28,
-    dailyGain: 0.893,
-    responsible: "João Silva",
-  },
-  {
-    id: "2",
-    date: new Date("2026-05-05"),
-    lotCode: "TERMINACAO-2026-01",
-    animalTag: "BR-0002",
-    weight: 465,
-    previousWeight: 420,
-    weightGain: 45,
-    daysSinceLast: 30,
-    dailyGain: 1.5,
-    responsible: "Maria Souza",
-  },
-  {
-    id: "3",
-    date: new Date("2026-05-01"),
-    lotCode: "ENGORDA-2026-01",
-    animalTag: "BR-0001",
-    weight: 385,
-    previousWeight: 349,
-    weightGain: 36,
-    daysSinceLast: 30,
-    dailyGain: 1.2,
-    responsible: "João Silva",
-  },
-];
+export default async function PesagensPage() {
+  const { tenant } = await requireTenant();
 
-export default function PesagensPage() {
+  const farms = await prisma.farm.findMany({
+    where: { tenantId: tenant.id, active: true },
+    select: { id: true, name: true },
+  });
+  const lots = await prisma.cattleLot.findMany({
+    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
+    select: { id: true, code: true, farmId: true },
+  });
+  const animals = await prisma.animal.findMany({
+    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
+    select: { id: true, tag: true, farmId: true },
+  });
+  const weighings = await prisma.weighing.findMany({
+    where: { farm: { tenantId: tenant.id } },
+    include: {
+      lot: { select: { code: true } },
+      animal: { select: { tag: true } },
+    },
+    orderBy: { date: "desc" },
+    take: 200,
+  });
+
   return (
     <>
       <Header
         title="Pesagens"
         subtitle="Histórico de pesagens e controle de GMD"
-        actions={
-          <Button asChild>
-            <Link href="/pesagens/nova">
-              <Plus className="h-4 w-4" />
-              Registrar Pesagem
-            </Link>
-          </Button>
-        }
+        actions={<WeighingDialog farms={farms} lots={lots} animals={animals} />}
       />
       <div className="p-6">
         <div className="rounded-lg border bg-card">
@@ -85,38 +57,49 @@ export default function PesagensPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockWeighings.map((w) => (
-                <TableRow key={w.id}>
-                  <TableCell>{formatDate(w.date)}</TableCell>
-                  <TableCell className="font-medium">{w.lotCode}</TableCell>
-                  <TableCell>{w.animalTag ?? <span className="text-muted-foreground">Lote</span>}</TableCell>
-                  <TableCell className="text-right">
-                    {w.previousWeight ? `${formatNumber(w.previousWeight)} kg` : "-"}
+              {weighings.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    Nenhuma pesagem registrada ainda.
                   </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatNumber(w.weight)} kg
-                  </TableCell>
-                  <TableCell className="text-right text-green-600">
-                    +{formatNumber(w.weightGain)} kg
-                  </TableCell>
-                  <TableCell className="text-right">{w.daysSinceLast}d</TableCell>
-                  <TableCell className="text-right">
-                    <span
-                      className={cn(
-                        "font-medium",
-                        w.dailyGain >= 1.2
-                          ? "text-green-600"
-                          : w.dailyGain >= 0.8
-                          ? "text-yellow-600"
-                          : "text-red-600"
-                      )}
-                    >
-                      {formatNumber(w.dailyGain, 3)} kg/d
-                    </span>
-                  </TableCell>
-                  <TableCell>{w.responsible}</TableCell>
                 </TableRow>
-              ))}
+              ) : weighings.map((w) => {
+                const dailyGain = w.dailyGain ? Number(w.dailyGain) : null;
+                return (
+                  <TableRow key={w.id}>
+                    <TableCell>{formatDate(w.date)}</TableCell>
+                    <TableCell className="font-medium">
+                      {w.lot?.code ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {w.animal?.tag ?? <span className="text-muted-foreground">Lote</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {w.previousWeight ? `${formatNumber(Number(w.previousWeight))} kg` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatNumber(Number(w.weight))} kg
+                    </TableCell>
+                    <TableCell className="text-right text-green-600">
+                      {w.weightGain ? `+${formatNumber(Number(w.weightGain))} kg` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {w.daysSinceLast ? `${w.daysSinceLast}d` : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {dailyGain !== null ? (
+                        <span className={cn(
+                          "font-medium",
+                          dailyGain >= 1.2 ? "text-green-600" : dailyGain >= 0.8 ? "text-yellow-600" : "text-red-600"
+                        )}>
+                          {formatNumber(dailyGain, 3)} kg/d
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>{w.responsible ?? "—"}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
