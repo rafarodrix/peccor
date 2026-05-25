@@ -1,0 +1,472 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  tenantUsers TenantUser[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Tenant / Multitenancy ────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  document  String?
+  phone     String?
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        TenantUser[]
+  farms        Farm[]
+  subscription Subscription?
+}
+
+model TenantUser {
+  id        String     @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      TenantRole @default(MEMBER)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  MANAGER
+  FINANCE
+  VETERINARY
+  OPERATOR
+  VIEWER
+  MEMBER
+}
+
+// ─── SaaS Subscription ───────────────────────────────────────────────────────
+
+model Subscription {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  plan        SaaSPlan @default(FREE)
+  maxAnimals  Int      @default(50)
+  maxFarms    Int      @default(1)
+  active      Boolean  @default(true)
+  trialEndsAt DateTime?
+  renewsAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+enum SaaSPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+// ─── Farm ─────────────────────────────────────────────────────────────────────
+
+model Farm {
+  id          String        @id @default(cuid())
+  tenantId    String
+  name        String
+  document    String?
+  stateReg    String?
+  state       String?
+  city        String?
+  totalArea   Decimal?      @db.Decimal(10, 2)
+  pastureArea Decimal?      @db.Decimal(10, 2)
+  operation   FarmOperation @default(CICLO_COMPLETO)
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  areas     FarmArea[]
+  lots      CattleLot[]
+  animals   Animal[]
+  purchases Purchase[]
+  sales     Sale[]
+  costs     Cost[]
+  weighings Weighing[]
+}
+
+enum FarmOperation {
+  CRIA
+  RECRIA
+  ENGORDA
+  CONFINAMENTO
+  CICLO_COMPLETO
+}
+
+model FarmArea {
+  id           String       @id @default(cuid())
+  farmId       String
+  name         String
+  type         FarmAreaType @default(PASTO)
+  capacityHead Int?
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+
+  farm Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lots CattleLot[]
+}
+
+enum FarmAreaType {
+  PASTO
+  CURRAL
+  PIQUETE
+  BAIA
+  CONFINAMENTO
+  OUTRO
+}
+
+// ─── Lots ─────────────────────────────────────────────────────────────────────
+
+model CattleLot {
+  id               String      @id @default(cuid())
+  farmId           String
+  areaId           String?
+  code             String
+  description      String?
+  phase            CattlePhase @default(ENGORDA)
+  status           LotStatus   @default(ACTIVE)
+  startDate        DateTime    @default(now())
+  endDate          DateTime?
+  initialQuantity  Int         @default(0)
+  currentQuantity  Int         @default(0)
+  initialAvgWeight Decimal?    @db.Decimal(10, 2)
+  currentAvgWeight Decimal?    @db.Decimal(10, 2)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  farm          Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  area          FarmArea?      @relation(fields: [areaId], references: [id])
+  animals       Animal[]
+  weighings     Weighing[]
+  costs         Cost[]
+  purchaseItems PurchaseItem[]
+  saleItems     SaleItem[]
+}
+
+enum CattlePhase {
+  CRIA
+  RECRIA
+  ENGORDA
+  TERMINACAO
+  CONFINAMENTO
+}
+
+enum LotStatus {
+  ACTIVE
+  SOLD
+  CLOSED
+  CANCELED
+}
+
+// ─── Animals ──────────────────────────────────────────────────────────────────
+
+model Animal {
+  id            String         @id @default(cuid())
+  farmId        String
+  lotId         String?
+  tag           String?
+  electronicTag String?
+  sisbov        String?
+  breed         String?
+  sex           AnimalSex      @default(MALE)
+  category      AnimalCategory @default(BOI)
+  birthDate     DateTime?
+  entryDate     DateTime       @default(now())
+  exitDate      DateTime?
+  entryWeight   Decimal?       @db.Decimal(10, 2)
+  currentWeight Decimal?       @db.Decimal(10, 2)
+  purchaseCost  Decimal?       @db.Decimal(10, 2)
+  status        AnimalStatus   @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  farm          Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot           CattleLot?       @relation(fields: [lotId], references: [id])
+  weighings     Weighing[]
+  healthEvents  HealthEvent[]
+  movements     AnimalMovement[]
+  purchaseItems PurchaseItem[]
+  saleItems     SaleItem[]
+}
+
+enum AnimalSex {
+  MALE
+  FEMALE
+}
+
+enum AnimalCategory {
+  BEZERRO
+  BEZERRA
+  GARROTE
+  NOVILHA
+  NOVILHO
+  VACA
+  BOI
+  TOURO
+}
+
+enum AnimalStatus {
+  ACTIVE
+  SOLD
+  DEAD
+  TRANSFERRED
+  LOST
+}
+
+// ─── Purchases ────────────────────────────────────────────────────────────────
+
+model Purchase {
+  id              String    @id @default(cuid())
+  farmId          String
+  supplierName    String
+  date            DateTime
+  quantity        Int
+  totalWeight     Decimal?  @db.Decimal(10, 2)
+  animalValue     Decimal   @db.Decimal(10, 2)
+  freightValue    Decimal   @default(0) @db.Decimal(10, 2)
+  commissionValue Decimal   @default(0) @db.Decimal(10, 2)
+  otherCosts      Decimal   @default(0) @db.Decimal(10, 2)
+  totalValue      Decimal   @db.Decimal(10, 2)
+  paymentMethod   String?
+  dueDate         DateTime?
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  farm  Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  items PurchaseItem[]
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  lotId      String?
+  animalId   String?
+  quantity   Int
+  avgWeight  Decimal? @db.Decimal(10, 2)
+  unitValue  Decimal? @db.Decimal(10, 2)
+  totalValue Decimal  @db.Decimal(10, 2)
+
+  purchase Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  lot      CattleLot? @relation(fields: [lotId], references: [id])
+  animal   Animal?    @relation(fields: [animalId], references: [id])
+}
+
+// ─── Sales ────────────────────────────────────────────────────────────────────
+
+model Sale {
+  id              String    @id @default(cuid())
+  farmId          String
+  customerName    String
+  date            DateTime
+  quantity        Int
+  totalWeight     Decimal?  @db.Decimal(10, 2)
+  pricePerArroba  Decimal?  @db.Decimal(10, 2)
+  animalValue     Decimal   @db.Decimal(10, 2)
+  freightValue    Decimal   @default(0) @db.Decimal(10, 2)
+  commissionValue Decimal   @default(0) @db.Decimal(10, 2)
+  discountValue   Decimal   @default(0) @db.Decimal(10, 2)
+  totalValue      Decimal   @db.Decimal(10, 2)
+  netValue        Decimal   @db.Decimal(10, 2)
+  paymentMethod   String?
+  dueDate         DateTime?
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  farm  Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  items SaleItem[]
+}
+
+model SaleItem {
+  id         String   @id @default(cuid())
+  saleId     String
+  lotId      String?
+  animalId   String?
+  quantity   Int
+  avgWeight  Decimal? @db.Decimal(10, 2)
+  unitValue  Decimal? @db.Decimal(10, 2)
+  totalValue Decimal  @db.Decimal(10, 2)
+
+  sale   Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  lot    CattleLot? @relation(fields: [lotId], references: [id])
+  animal Animal?    @relation(fields: [animalId], references: [id])
+}
+
+// ─── Weighings ────────────────────────────────────────────────────────────────
+
+model Weighing {
+  id             String   @id @default(cuid())
+  farmId         String
+  lotId          String?
+  animalId       String?
+  date           DateTime
+  weight         Decimal  @db.Decimal(10, 2)
+  previousWeight Decimal? @db.Decimal(10, 2)
+  weightGain     Decimal? @db.Decimal(10, 2)
+  daysSinceLast  Int?
+  dailyGain      Decimal? @db.Decimal(10, 4)
+  responsible    String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  farm   Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot    CattleLot? @relation(fields: [lotId], references: [id])
+  animal Animal?    @relation(fields: [animalId], references: [id])
+}
+
+// ─── Costs ────────────────────────────────────────────────────────────────────
+
+model Cost {
+  id          String       @id @default(cuid())
+  farmId      String
+  lotId       String?
+  category    CostCategory
+  type        CostType
+  description String
+  date        DateTime
+  dueDate     DateTime?
+  paidAt      DateTime?
+  amount      Decimal      @db.Decimal(10, 2)
+  isRecurring Boolean      @default(false)
+  recurrence  String?
+  status      CostStatus   @default(OPEN)
+  notes       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  farm Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot  CattleLot? @relation(fields: [lotId], references: [id])
+}
+
+enum CostType {
+  FIXED
+  VARIABLE
+}
+
+enum CostCategory {
+  FUNCIONARIO
+  ENERGIA
+  ARRENDAMENTO
+  RACAO
+  SAL_MINERAL
+  VACINA
+  MEDICAMENTO
+  FRETE
+  MANUTENCAO
+  COMISSAO
+  COMBUSTIVEL
+  VETERINARIO
+  OUTROS
+}
+
+enum CostStatus {
+  OPEN
+  PAID
+  CANCELED
+}
+
+// ─── Health ───────────────────────────────────────────────────────────────────
+
+model HealthEvent {
+  id             String          @id @default(cuid())
+  animalId       String
+  date           DateTime
+  type           HealthEventType
+  description    String
+  productName    String?
+  dosage         String?
+  withdrawalDays Int?
+  responsible    String?
+  notes          String?
+  createdAt      DateTime        @default(now())
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+}
+
+enum HealthEventType {
+  VACINA
+  VERMIFUGO
+  MEDICAMENTO
+  DOENCA
+  MORTE
+  OUTRO
+}
+
+// ─── Movements ────────────────────────────────────────────────────────────────
+
+model AnimalMovement {
+  id         String   @id @default(cuid())
+  animalId   String
+  fromLotId  String?
+  toLotId    String?
+  fromAreaId String?
+  toAreaId   String?
+  date       DateTime
+  reason     String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+}
