@@ -1,6 +1,23 @@
+import { cache } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
+import { getCurrentTenant } from "@/server/services/tenant";
+import { getAlerts } from "@/server/queries/alerts";
+import type { Alert } from "@/server/queries/alerts";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+// cache() deduplicates this call within a single request so individual page
+// server components can call getLayoutAlerts() to get alerts without an extra
+// DB round-trip.
+export const getLayoutAlerts = cache(async (): Promise<Alert[]> => {
+  const tenantUser = await getCurrentTenant();
+  if (!tenantUser) return [];
+  return getAlerts(tenantUser.tenantId);
+});
+
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // Warm the cache so that any page calling getLayoutAlerts() in the same
+  // request gets the already-fetched result.
+  await getLayoutAlerts();
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />

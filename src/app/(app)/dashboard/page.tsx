@@ -13,21 +13,61 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
 import { getDashboardStats, getRecentLots } from "@/server/queries/dashboard";
+import { getLayoutAlerts } from "@/app/(app)/layout";
+import { OnboardingBanner } from "@/components/onboarding/onboarding-banner";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const { tenant } = await requireTenant();
-  const [stats, recentLots] = await Promise.all([
+
+  const [stats, recentLots, alerts] = await Promise.all([
     getDashboardStats(tenant.id),
     getRecentLots(tenant.id),
+    getLayoutAlerts(),
   ]);
+
+  // Onboarding step detection
+  const farms = await prisma.farm.findMany({
+    where: { tenantId: tenant.id, active: true },
+    select: { id: true },
+  });
+  const farmIds = farms.map((f: { id: string }) => f.id);
+  const farmCount = farms.length;
+
+  let onboardingStep: "no_farm" | "no_lot" | "no_weighing" | null = null;
+
+  if (farmCount === 0) {
+    onboardingStep = "no_farm";
+  } else {
+    const [lotCount, weighingCount] = await Promise.all([
+      prisma.cattleLot.count({
+        where: { farmId: { in: farmIds }, status: "ACTIVE" },
+      }),
+      prisma.weighing.count({
+        where: {
+          farmId: { in: farmIds },
+          date: { gte: new Date(Date.now() - 30 * 86400000) },
+        },
+      }),
+    ]);
+
+    if (lotCount === 0) {
+      onboardingStep = "no_lot";
+    } else if (weighingCount === 0) {
+      onboardingStep = "no_weighing";
+    }
+  }
 
   return (
     <>
       <Header
         title="Dashboard"
         subtitle="Visão geral da sua operação pecuária"
+        alerts={alerts}
       />
       <div className="p-6 space-y-6">
+        <OnboardingBanner step={onboardingStep} />
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Animais Ativos"
