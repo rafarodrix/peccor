@@ -65,10 +65,13 @@ export function SaleForm({ farms, lots, onSuccess }: Props) {
         </FormField>
 
         <FormField label="Lote Origem" error={errors.lotId?.message}>
-          <Select value={watch("lotId") ?? ""} onValueChange={(v) => setValue("lotId", v || null)}>
+          <Select 
+            value={watch("lotId") || "none"} 
+            onValueChange={(v) => setValue("lotId", v === "none" ? null : v)}
+          >
             <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum (avulso)</SelectItem>
+              <SelectItem value="none">Nenhum (avulso)</SelectItem>
               {filteredLots.map((l) => <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>)}
             </SelectContent>
           </Select>

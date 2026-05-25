@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { WeighingSchema, type WeighingInput } from "@/lib/validations/weighing";
@@ -75,7 +76,7 @@ export function WeighingForm({ farms, lots, animals, onSuccess }: Props) {
 
       <div className="grid grid-cols-3 gap-3">
         <FormField label="Data" required error={errors.date?.message}>
-          <Input type="date" {...register("date")} />
+          <DatePicker value={watch("date")} onChange={(e) => setValue("date", e.target.value)} />
         </FormField>
         <FormField label="Peso atual (kg)" required error={errors.weight?.message}>
           <Input type="number" step="0.01" {...register("weight")} placeholder="320" />

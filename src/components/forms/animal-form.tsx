@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/ui/form-field";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AnimalSchema, type AnimalInput } from "@/lib/validations/animal";
@@ -106,7 +107,7 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
 
       <div className="grid grid-cols-3 gap-3">
         <FormField label="Data de entrada" required error={errors.entryDate?.message}>
-          <Input type="date" {...register("entryDate")} />
+          <DatePicker value={watch("entryDate")} onChange={(e) => setValue("entryDate", e.target.value)} />
         </FormField>
         <FormField label="Peso entrada (kg)" error={errors.entryWeight?.message}>
           <Input type="number" step="0.1" {...register("entryWeight")} placeholder="280" />

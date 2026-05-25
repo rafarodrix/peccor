@@ -10,6 +10,7 @@ import { formatCurrency, formatNumber, formatDate, kgToArrobas } from "@/lib/uti
 import { requireTenant } from "@/server/services/tenant";
 import { getFinancePageData } from "@/server/queries/finance";
 import { DfcService } from "@/server/services/dfc-service";
+import { DatePicker } from "@/components/ui/date-picker";
 import { TrendingUp, Layers, Calendar, ArrowUpRight, ArrowDownRight, DollarSign } from "lucide-react";
 
 type FinanceSaleRow = Awaited<ReturnType<typeof getFinancePageData>>["sales"][number];
@@ -197,20 +198,18 @@ export default async function FinanceiroPage({ searchParams }: Props) {
                   <input type="hidden" name="tab" value="dfc" />
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Início:</span>
-                    <input 
-                      type="date" 
+                    <DatePicker 
                       name="start" 
                       defaultValue={startDate} 
-                      className="flex h-8 rounded-md border border-input bg-transparent px-2.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="h-8 text-xs w-36"
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Fim:</span>
-                    <input 
-                      type="date" 
+                    <DatePicker 
                       name="end" 
                       defaultValue={endDate} 
-                      className="flex h-8 rounded-md border border-input bg-transparent px-2.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="h-8 text-xs w-36"
                     />
                   </div>
                   <Button type="submit" size="sm" className="h-8">Filtrar</Button>

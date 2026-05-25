@@ -119,14 +119,14 @@ export function AccountDialog({ accounts }: Props) {
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Categoria DFC" error={errors.dfcCategory?.message}>
               <Select
-                value={watch("dfcCategory") ?? ""}
-                onValueChange={(v) => setValue("dfcCategory", v as any)}
+                value={watch("dfcCategory") || "none"}
+                onValueChange={(v) => setValue("dfcCategory", v === "none" ? null : v as any)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Opcional" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem Categoria</SelectItem>
+                  <SelectItem value="none">Sem Categoria</SelectItem>
                   <SelectItem value="OPERATIONAL">Operacional (FCO)</SelectItem>
                   <SelectItem value="INVESTMENT">Investimento (FCI)</SelectItem>
                   <SelectItem value="FINANCING">Financiamento (FCF)</SelectItem>
@@ -135,14 +135,14 @@ export function AccountDialog({ accounts }: Props) {
             </FormField>
             <FormField label="Conta Pai (Superior)" error={errors.parentId?.message}>
               <Select
-                value={watch("parentId") ?? ""}
-                onValueChange={(v) => setValue("parentId", v || "")}
+                value={watch("parentId") || "none"}
+                onValueChange={(v) => setValue("parentId", v === "none" ? "" : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nenhuma" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhuma (Nível Raiz)</SelectItem>
+                  <SelectItem value="none">Nenhuma (Nível Raiz)</SelectItem>
                   {accounts.map((acc) => (
                     <SelectItem key={acc.id} value={acc.id}>
                       {acc.code} - {acc.name}

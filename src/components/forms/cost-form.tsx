@@ -100,10 +100,13 @@ export function CostForm({ farms, lots, chartOfAccounts, onSuccess }: Props) {
         </FormField>
 
         <FormField label="Lote (opcional)" error={errors.lotId?.message}>
-          <Select value={watch("lotId") ?? ""} onValueChange={(v) => setValue("lotId", v || null)}>
+          <Select 
+            value={watch("lotId") || "none"} 
+            onValueChange={(v) => setValue("lotId", v === "none" ? null : v)}
+          >
             <SelectTrigger><SelectValue placeholder="Nenhum (fazenda)" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Nenhum (custo geral da fazenda)</SelectItem>
+              <SelectItem value="none">Nenhum (custo geral da fazenda)</SelectItem>
               {filteredLots.map((l) => <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>)}
             </SelectContent>
           </Select>
