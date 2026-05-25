@@ -2,17 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requirePermission } from "@/server/services/tenant";
 import { PurchaseSchema } from "@/lib/validations/purchase";
 import { calcPurchaseTotalCost } from "@/lib/utils";
 
 export async function createPurchase(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("purchases:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = PurchaseSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const farm = await prisma.farm.findFirst({
-    where: { id: parsed.data.farmId, tenantId: tenant.id },
+    where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
@@ -35,9 +37,7 @@ export async function createPurchase(data: unknown) {
             create: {
               lotId,
               quantity: rest.quantity,
-              avgWeight: rest.totalWeight
-                ? rest.totalWeight / rest.quantity
-                : null,
+              avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
               totalValue,
             },
           }
@@ -45,7 +45,6 @@ export async function createPurchase(data: unknown) {
     },
   });
 
-  // Update lot if linked
   if (lotId) {
     const lot = await prisma.cattleLot.findUnique({ where: { id: lotId } });
     if (lot) {

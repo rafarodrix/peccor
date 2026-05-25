@@ -2,18 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requirePermission } from "@/server/services/tenant";
 import { FarmSchema, AreaSchema } from "@/lib/validations/farm";
 
 // ─── Farms ────────────────────────────────────────────────────────────────────
 
 export async function createFarm(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("farms:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = FarmSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   await prisma.farm.create({
-    data: { ...parsed.data, tenantId: tenant.id },
+    data: { ...parsed.data, tenantId: tenantUser.tenant.id },
   });
 
   revalidatePath("/fazendas");
@@ -21,11 +23,13 @@ export async function createFarm(data: unknown) {
 }
 
 export async function updateFarm(id: string, data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("farms:edit");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = FarmSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
-  const farm = await prisma.farm.findFirst({ where: { id, tenantId: tenant.id } });
+  const farm = await prisma.farm.findFirst({ where: { id, tenantId: tenantUser.tenant.id } });
   if (!farm) return { error: "Fazenda não encontrada" };
 
   await prisma.farm.update({ where: { id }, data: parsed.data });
@@ -36,8 +40,10 @@ export async function updateFarm(id: string, data: unknown) {
 }
 
 export async function deleteFarm(id: string) {
-  const { tenant } = await requireTenant();
-  const farm = await prisma.farm.findFirst({ where: { id, tenantId: tenant.id } });
+  const { error, tenantUser } = await requirePermission("farms:delete");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
+  const farm = await prisma.farm.findFirst({ where: { id, tenantId: tenantUser.tenant.id } });
   if (!farm) return { error: "Fazenda não encontrada" };
 
   await prisma.farm.update({ where: { id }, data: { active: false } });
@@ -49,12 +55,14 @@ export async function deleteFarm(id: string) {
 // ─── Areas ────────────────────────────────────────────────────────────────────
 
 export async function createArea(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("areas:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = AreaSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const farm = await prisma.farm.findFirst({
-    where: { id: parsed.data.farmId, tenantId: tenant.id },
+    where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
@@ -66,12 +74,14 @@ export async function createArea(data: unknown) {
 }
 
 export async function updateArea(id: string, data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("areas:edit");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = AreaSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const area = await prisma.farmArea.findFirst({
-    where: { id, farm: { tenantId: tenant.id } },
+    where: { id, farm: { tenantId: tenantUser.tenant.id } },
   });
   if (!area) return { error: "Área não encontrada" };
 
@@ -82,9 +92,11 @@ export async function updateArea(id: string, data: unknown) {
 }
 
 export async function deleteArea(id: string) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("areas:delete");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const area = await prisma.farmArea.findFirst({
-    where: { id, farm: { tenantId: tenant.id } },
+    where: { id, farm: { tenantId: tenantUser.tenant.id } },
   });
   if (!area) return { error: "Área não encontrada" };
 
