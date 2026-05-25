@@ -67,9 +67,10 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users        TenantUser[]
-  farms        Farm[]
-  subscription Subscription?
+  users           TenantUser[]
+  farms           Farm[]
+  subscription    Subscription?
+  chartOfAccounts ChartOfAccount[]
 }
 
 model TenantUser {
@@ -439,6 +440,8 @@ model Cost {
 
   farm Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lot  CattleLot? @relation(fields: [lotId], references: [id])
+  chartOfAccountId String?
+  chartOfAccount    ChartOfAccount? @relation(fields: [chartOfAccountId], references: [id])
 
   @@index([farmId, status, date])
   @@index([lotId, status])
@@ -521,4 +524,38 @@ model AnimalMovement {
   @@index([animalId, date])
   @@index([fromLotId, date])
   @@index([toLotId, date])
+}
+
+// ─── Plano de Contas ─────────────────────────────────────────────────────────
+
+model ChartOfAccount {
+  id          String         @id @default(cuid())
+  tenantId    String
+  code        String         // Hierarchical code (e.g. "1.1", "2.1.03")
+  name        String
+  type        AccountType
+  dfcCategory DfcCategory?
+  parentId    String?
+  active      Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children ChartOfAccount[] @relation("AccountHierarchy")
+  costs    Cost[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active])
+}
+
+enum AccountType {
+  INFLOW
+  OUTFLOW
+}
+
+enum DfcCategory {
+  OPERATIONAL
+  INVESTMENT
+  FINANCING
 }

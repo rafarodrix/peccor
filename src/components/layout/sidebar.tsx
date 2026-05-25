@@ -44,6 +44,7 @@ const configItems = [
   { href: "/configuracoes", label: "Configurações", icon: Settings },
   { href: "/configuracoes/usuarios", label: "Usuários", icon: Users },
   { href: "/configuracoes/perfis", label: "Perfis de acesso", icon: ShieldCheck },
+  { href: "/configuracoes/financeiro", label: "Financeiro", icon: DollarSign },
 ];
 
 export function Sidebar() {

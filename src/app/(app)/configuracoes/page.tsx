@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Users, ShieldCheck } from "lucide-react";
+import { Users, ShieldCheck, DollarSign } from "lucide-react";
 import { requireTenant } from "@/server/services/tenant";
 import { getSettingsPageData } from "@/server/queries/settings";
 
@@ -93,6 +93,28 @@ export default async function ConfiguracoesPage() {
                 <p className="text-xs text-muted-foreground">usuários</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Configuração Financeira</CardTitle>
+              <CardDescription>Gerencie o Plano de Contas e categorias contábeis</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" asChild>
+                <Link href="/configuracoes/financeiro">
+                  <DollarSign className="h-4 w-4" />
+                  Plano de Contas
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Estruture a árvore contábil e a classificação para DFC (Demonstrativo de Fluxo de Caixa) da sua organização agropecuária.
+            </p>
           </CardContent>
         </Card>
 
