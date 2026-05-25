@@ -3,14 +3,12 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requireTenant, requirePermission } from "@/server/services/tenant";
 import { InviteUserSchema, UpdateRoleSchema } from "@/lib/validations/user";
 
 export async function inviteUser(data: unknown) {
-  const { tenant, role } = await requireTenant();
-  if (!["OWNER", "ADMIN"].includes(role)) {
-    return { error: "Sem permissão para convidar usuários" };
-  }
+  const { error, tenantUser } = await requirePermission("users:invite");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
 
   const parsed = InviteUserSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -25,18 +23,18 @@ export async function inviteUser(data: unknown) {
   }
 
   const existing = await prisma.tenantUser.findUnique({
-    where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+    where: { tenantId_userId: { tenantId: tenantUser.tenant.id, userId: user.id } },
   });
 
   if (existing) {
     if (existing.active) return { error: "Usuário já está na organização" };
     await prisma.tenantUser.update({
-      where: { tenantId_userId: { tenantId: tenant.id, userId: user.id } },
+      where: { tenantId_userId: { tenantId: tenantUser.tenant.id, userId: user.id } },
       data: { active: true, role: newRole },
     });
   } else {
     await prisma.tenantUser.create({
-      data: { tenantId: tenant.id, userId: user.id, role: newRole },
+      data: { tenantId: tenantUser.tenant.id, userId: user.id, role: newRole },
     });
   }
 
@@ -45,27 +43,23 @@ export async function inviteUser(data: unknown) {
 }
 
 export async function updateUserRole(data: unknown) {
-  const { tenant, role } = await requireTenant();
-  if (!["OWNER", "ADMIN"].includes(role)) {
-    return { error: "Sem permissão para alterar perfis" };
-  }
+  const { error, tenantUser } = await requirePermission("users:edit_role");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
 
   const parsed = UpdateRoleSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { userId, role: newRole } = parsed.data;
 
-  // Prevent changing own role
-  const currentUser = await prisma.tenantUser.findFirst({
-    where: { tenantId: tenant.id, role: "OWNER" },
-    include: { user: true },
+  const ownerRecord = await prisma.tenantUser.findFirst({
+    where: { tenantId: tenantUser.tenant.id, role: "OWNER" },
   });
-  if (currentUser?.userId === userId && newRole !== "OWNER") {
+  if (ownerRecord?.userId === userId && newRole !== "OWNER") {
     return { error: "Não é possível remover o papel de proprietário de si mesmo" };
   }
 
   await prisma.tenantUser.update({
-    where: { tenantId_userId: { tenantId: tenant.id, userId } },
+    where: { tenantId_userId: { tenantId: tenantUser.tenant.id, userId } },
     data: { role: newRole },
   });
 
@@ -74,19 +68,17 @@ export async function updateUserRole(data: unknown) {
 }
 
 export async function removeUser(userId: string) {
-  const { tenant, role } = await requireTenant();
-  if (!["OWNER", "ADMIN"].includes(role)) {
-    return { error: "Sem permissão para remover usuários" };
-  }
+  const { error, tenantUser } = await requirePermission("users:remove");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
 
   const target = await prisma.tenantUser.findUnique({
-    where: { tenantId_userId: { tenantId: tenant.id, userId } },
+    where: { tenantId_userId: { tenantId: tenantUser.tenant.id, userId } },
   });
   if (!target) return { error: "Usuário não encontrado" };
   if (target.role === "OWNER") return { error: "Não é possível remover o proprietário" };
 
   await prisma.tenantUser.update({
-    where: { tenantId_userId: { tenantId: tenant.id, userId } },
+    where: { tenantId_userId: { tenantId: tenantUser.tenant.id, userId } },
     data: { active: false },
   });
 

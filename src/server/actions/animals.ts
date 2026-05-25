@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requirePermission } from "@/server/services/tenant";
 import { AnimalSchema } from "@/lib/validations/animal";
 
 export async function createAnimal(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("animals:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = AnimalSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const farm = await prisma.farm.findFirst({
-    where: { id: parsed.data.farmId, tenantId: tenant.id },
+    where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
@@ -37,12 +39,14 @@ export async function createAnimal(data: unknown) {
 }
 
 export async function updateAnimal(id: string, data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("animals:edit");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = AnimalSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const animal = await prisma.animal.findFirst({
-    where: { id, farm: { tenantId: tenant.id } },
+    where: { id, farm: { tenantId: tenantUser.tenant.id } },
   });
   if (!animal) return { error: "Animal não encontrado" };
 
@@ -62,9 +66,11 @@ export async function updateAnimal(id: string, data: unknown) {
 }
 
 export async function markAnimalDead(id: string, notes?: string) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("animals:edit");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const animal = await prisma.animal.findFirst({
-    where: { id, farm: { tenantId: tenant.id }, status: "ACTIVE" },
+    where: { id, farm: { tenantId: tenantUser.tenant.id }, status: "ACTIVE" },
   });
   if (!animal) return { error: "Animal não encontrado" };
 
@@ -84,14 +90,12 @@ export async function markAnimalDead(id: string, notes?: string) {
   return { success: true };
 }
 
-export async function transferAnimal(
-  id: string,
-  toLotId: string,
-  toAreaId?: string
-) {
-  const { tenant } = await requireTenant();
+export async function transferAnimal(id: string, toLotId: string, toAreaId?: string) {
+  const { error, tenantUser } = await requirePermission("animals:edit");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const animal = await prisma.animal.findFirst({
-    where: { id, farm: { tenantId: tenant.id }, status: "ACTIVE" },
+    where: { id, farm: { tenantId: tenantUser.tenant.id }, status: "ACTIVE" },
   });
   if (!animal) return { error: "Animal não encontrado" };
 

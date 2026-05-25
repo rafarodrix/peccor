@@ -2,22 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requirePermission } from "@/server/services/tenant";
 import { WeighingSchema } from "@/lib/validations/weighing";
 
 export async function createWeighing(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("weighings:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = WeighingSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const farm = await prisma.farm.findFirst({
-    where: { id: parsed.data.farmId, tenantId: tenant.id },
+    where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
   const { date, animalId, lotId, ...rest } = parsed.data;
 
-  // Fetch previous weighing for this animal or lot
   let previousWeight: number | null = null;
   let daysSinceLast: number | null = null;
 
@@ -45,8 +46,7 @@ export async function createWeighing(data: unknown) {
     }
   }
 
-  const weightGain =
-    previousWeight !== null ? rest.weight - previousWeight : null;
+  const weightGain = previousWeight !== null ? rest.weight - previousWeight : null;
   const dailyGain =
     weightGain !== null && daysSinceLast && daysSinceLast > 0
       ? weightGain / daysSinceLast
@@ -65,7 +65,6 @@ export async function createWeighing(data: unknown) {
     },
   });
 
-  // Update currentWeight on animal / lot
   if (animalId) {
     await prisma.animal.update({
       where: { id: animalId },

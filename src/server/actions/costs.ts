@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/server/services/tenant";
+import { requirePermission } from "@/server/services/tenant";
 import { CostSchema } from "@/lib/validations/cost";
 
 export async function createCost(data: unknown) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("costs:create");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const parsed = CostSchema.safeParse(data);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const farm = await prisma.farm.findFirst({
-    where: { id: parsed.data.farmId, tenantId: tenant.id },
+    where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
   if (!farm) return { error: "Fazenda não encontrada" };
 
@@ -25,9 +27,11 @@ export async function createCost(data: unknown) {
 }
 
 export async function payCost(id: string) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("costs:pay");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const cost = await prisma.cost.findFirst({
-    where: { id, farm: { tenantId: tenant.id }, status: "OPEN" },
+    where: { id, farm: { tenantId: tenantUser.tenant.id }, status: "OPEN" },
   });
   if (!cost) return { error: "Custo não encontrado" };
 
@@ -38,9 +42,11 @@ export async function payCost(id: string) {
 }
 
 export async function deleteCost(id: string) {
-  const { tenant } = await requireTenant();
+  const { error, tenantUser } = await requirePermission("costs:delete");
+  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+
   const cost = await prisma.cost.findFirst({
-    where: { id, farm: { tenantId: tenant.id } },
+    where: { id, farm: { tenantId: tenantUser.tenant.id } },
   });
   if (!cost) return { error: "Custo não encontrado" };
 

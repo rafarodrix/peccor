@@ -11,62 +11,15 @@ import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentLotsTable } from "@/components/dashboard/recent-lots-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { requireTenant } from "@/server/services/tenant";
+import { getDashboardStats, getRecentLots } from "@/server/queries/dashboard";
 
-// Dados de exemplo para o MVP - substituir por dados reais via Prisma
-const mockStats = {
-  activeAnimals: 450,
-  soldAnimals: 120,
-  deadAnimals: 3,
-  activeLots: 6,
-  avgWeight: 342.5,
-  avgDailyGain: 1.15,
-  monthlyCost: 38500,
-  costPerHeadDay: 2.85,
-  monthlyRevenue: 95000,
-  projectedProfit: 56500,
-};
-
-const mockLots = [
-  {
-    id: "1",
-    code: "ENGORDA-2026-01",
-    phase: "ENGORDA",
-    currentQuantity: 80,
-    currentAvgWeight: 380,
-    totalCost: 125000,
-    status: "ACTIVE",
-  },
-  {
-    id: "2",
-    code: "TERMINACAO-2026-01",
-    phase: "TERMINACAO",
-    currentQuantity: 45,
-    currentAvgWeight: 460,
-    totalCost: 88000,
-    status: "ACTIVE",
-  },
-  {
-    id: "3",
-    code: "RECRIA-2026-01",
-    phase: "RECRIA",
-    currentQuantity: 120,
-    currentAvgWeight: 260,
-    totalCost: 142000,
-    status: "ACTIVE",
-  },
-  {
-    id: "4",
-    code: "ENGORDA-2025-12",
-    phase: "ENGORDA",
-    currentQuantity: 0,
-    currentAvgWeight: null,
-    totalCost: 95000,
-    status: "SOLD",
-  },
-];
-
-export default function DashboardPage() {
-  const stats = mockStats;
+export default async function DashboardPage() {
+  const { tenant } = await requireTenant();
+  const [stats, recentLots] = await Promise.all([
+    getDashboardStats(tenant.id),
+    getRecentLots(tenant.id),
+  ]);
 
   return (
     <>
@@ -117,16 +70,21 @@ export default function DashboardPage() {
           <StatCard
             title="Mortes / Perdas"
             value={formatNumber(stats.deadAnimals, 0)}
-            description={`${formatNumber((stats.deadAnimals / (stats.activeAnimals + stats.deadAnimals)) * 100, 2)}% do rebanho`}
+            description={
+              stats.activeAnimals + stats.deadAnimals > 0
+                ? `${formatNumber((stats.deadAnimals / (stats.activeAnimals + stats.deadAnimals)) * 100, 2)}% do rebanho`
+                : "Nenhum animal registrado"
+            }
             icon={Beef}
             variant="danger"
           />
           <StatCard
             title="Custo por Arroba"
-            value={formatCurrency(
-              stats.monthlyCost /
-                ((stats.activeAnimals * stats.avgWeight) / 15)
-            )}
+            value={
+              stats.activeAnimals > 0 && stats.avgWeight > 0
+                ? formatCurrency(stats.monthlyCost / ((stats.activeAnimals * stats.avgWeight) / 15))
+                : "—"
+            }
             description="Custo médio de produção"
             icon={DollarSign}
             variant="warning"
@@ -138,7 +96,7 @@ export default function DashboardPage() {
             <CardTitle>Lotes Recentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <RecentLotsTable lots={mockLots} />
+            <RecentLotsTable lots={recentLots} />
           </CardContent>
         </Card>
       </div>
