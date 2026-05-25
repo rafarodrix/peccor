@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Users, ShieldCheck } from "lucide-react";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getSettingsPageData } from "@/server/queries/settings";
+
+type TenantUserRow = Awaited<ReturnType<typeof getSettingsPageData>>["users"][number];
 
 const PLAN_LABELS: Record<string, string> = {
   FREE: "Gratuito", STARTER: "Starter", PRO: "Pro", ENTERPRISE: "Enterprise",
@@ -18,17 +20,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default async function ConfiguracoesPage() {
   const { tenant } = await requireTenant();
-
-  const [subscription, users, farmCount, animalCount] = await Promise.all([
-    prisma.subscription.findUnique({ where: { tenantId: tenant.id } }),
-    prisma.tenantUser.findMany({
-      where: { tenantId: tenant.id, active: true },
-      include: { user: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.farm.count({ where: { tenantId: tenant.id, active: true } }),
-    prisma.animal.count({ where: { farm: { tenantId: tenant.id }, status: "ACTIVE" } }),
-  ]);
+  const { subscription, users, farmCount, animalCount } = await getSettingsPageData(tenant.id);
 
   return (
     <>
@@ -127,7 +119,7 @@ export default async function ConfiguracoesPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-0">
-              {users.map((tu) => (
+              {users.map((tu: TenantUserRow) => (
                 <div key={tu.id} className="flex items-center justify-between py-3 border-b last:border-0">
                   <div>
                     <p className="font-medium text-sm">{tu.user.name}</p>

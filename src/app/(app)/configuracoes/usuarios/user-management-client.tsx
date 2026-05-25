@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, MoreHorizontal, Shield, UserMinus } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { UserInviteForm } from "@/components/forms/user-form";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS } from "@/lib/permissions";
 import { updateUserRole, removeUser } from "@/server/actions/users";
-import type { TenantRole } from "@prisma/client";
+
+type TenantRole = keyof typeof ROLE_LABELS;
 
 interface UserEntry {
   id: string;
@@ -40,7 +42,7 @@ export function UserManagementClient({ users }: { users: UserEntry[] }) {
   function handleRoleChange(userId: string, role: TenantRole) {
     startTransition(async () => {
       const result = await updateUserRole({ userId, role });
-      if (result.error) alert(result.error);
+      if (result.error) toast.error(result.error);
     });
   }
 
@@ -48,7 +50,7 @@ export function UserManagementClient({ users }: { users: UserEntry[] }) {
     if (!confirm("Remover este usuário da organização?")) return;
     startTransition(async () => {
       const result = await removeUser(userId);
-      if (result.error) alert(result.error);
+      if (result.error) toast.error(result.error);
     });
   }
 

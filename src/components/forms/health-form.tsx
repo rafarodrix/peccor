@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +43,7 @@ export function HealthForm({ animals, onSuccess }: Props) {
     startTransition(async () => {
       const result = await createHealthEvent(data);
       if (!result.error) onSuccess?.();
-      else alert(result.error);
+      else toast.error(result.error);
     });
   }
 

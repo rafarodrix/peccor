@@ -5,8 +5,10 @@ import {
 } from "@/components/ui/table";
 import { formatDate } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getHealthPageData } from "@/server/queries/health";
 import { HealthDialog } from "./health-dialog";
+
+type HealthEventRow = Awaited<ReturnType<typeof getHealthPageData>>["healthEvents"][number];
 
 const eventTypeLabels: Record<string, string> = {
   VACINA: "Vacina", VERMIFUGO: "Vermífugo", MEDICAMENTO: "Medicamento",
@@ -19,21 +21,7 @@ const eventTypeColors: Record<string, "default" | "success" | "warning" | "destr
 
 export default async function ManejoSanitarioPage() {
   const { tenant } = await requireTenant();
-
-  const animals = await prisma.animal.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, tag: true, farmId: true },
-  });
-  const healthEvents = await prisma.healthEvent.findMany({
-    where: { animal: { farm: { tenantId: tenant.id } } },
-    include: {
-      animal: {
-        select: { tag: true, lot: { select: { code: true } }, farm: { select: { name: true } } },
-      },
-    },
-    orderBy: { date: "desc" },
-    take: 200,
-  });
+  const { animals, healthEvents } = await getHealthPageData(tenant.id);
 
   return (
     <>
@@ -65,7 +53,7 @@ export default async function ManejoSanitarioPage() {
                     Nenhum evento sanitário registrado ainda.
                   </TableCell>
                 </TableRow>
-              ) : healthEvents.map((event) => (
+              ) : healthEvents.map((event: HealthEventRow) => (
                 <TableRow key={event.id}>
                   <TableCell>{formatDate(event.date)}</TableCell>
                   <TableCell>

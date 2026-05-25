@@ -1,22 +1,25 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/services/tenant";
-import { SaleSchema } from "@/lib/validations/sale";
 import { calcSaleNetValue } from "@/lib/utils";
+import { SaleSchema } from "@/lib/validations/sale";
+import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import { revalidatePaths } from "@/server/lib/revalidate-paths";
+import { requirePermission } from "@/server/services/tenant";
 
-export async function createSale(data: unknown) {
+export async function createSale(data: unknown): Promise<ActionResult<{ id: string }>> {
   const { error, tenantUser } = await requirePermission("sales:create");
-  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+  if (error || !tenantUser) return fail(error ?? "Sem permissao", "FORBIDDEN");
 
   const parsed = SaleSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Dados invalidos", "VALIDATION_ERROR");
+  }
 
   const farm = await prisma.farm.findFirst({
     where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
-  if (!farm) return { error: "Fazenda não encontrada" };
+  if (!farm) return fail("Fazenda nao encontrada", "FARM_NOT_FOUND");
 
   const { date, dueDate, lotId, ...rest } = parsed.data;
   const netValue = calcSaleNetValue(
@@ -26,42 +29,46 @@ export async function createSale(data: unknown) {
     rest.discountValue
   );
 
-  const sale = await prisma.sale.create({
-    data: {
-      ...rest,
-      totalValue: rest.animalValue,
-      netValue,
-      date: new Date(date),
-      dueDate: dueDate ? new Date(dueDate) : null,
-      items: lotId
-        ? {
-            create: {
-              lotId,
-              quantity: rest.quantity,
-              avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
-              totalValue: netValue,
-            },
-          }
-        : undefined,
-    },
-  });
-
-  if (lotId) {
-    await prisma.cattleLot.update({
-      where: { id: lotId },
-      data: { currentQuantity: { decrement: rest.quantity } },
+  const sale = await prisma.$transaction(async (tx) => {
+    const createdSale = await tx.sale.create({
+      data: {
+        ...rest,
+        totalValue: rest.animalValue,
+        netValue,
+        date: new Date(date),
+        dueDate: dueDate ? new Date(dueDate) : null,
+        items: lotId
+          ? {
+              create: {
+                lotId,
+                quantity: rest.quantity,
+                avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
+                totalValue: netValue,
+              },
+            }
+          : undefined,
+      },
+      select: { id: true },
     });
 
-    const lot = await prisma.cattleLot.findUnique({ where: { id: lotId } });
-    if (lot && lot.currentQuantity <= 0) {
-      await prisma.cattleLot.update({
+    if (lotId) {
+      const updatedLot = await tx.cattleLot.update({
         where: { id: lotId },
-        data: { status: "SOLD", endDate: new Date() },
+        data: { currentQuantity: { decrement: rest.quantity } },
+        select: { currentQuantity: true },
       });
-    }
-  }
 
-  revalidatePath("/vendas");
-  revalidatePath("/dashboard");
-  return { success: true, id: sale.id };
+      if (updatedLot.currentQuantity <= 0) {
+        await tx.cattleLot.update({
+          where: { id: lotId },
+          data: { status: "SOLD", endDate: new Date() },
+        });
+      }
+    }
+
+    return createdSale;
+  });
+
+  revalidatePaths(["/vendas", "/dashboard"]);
+  return ok({ id: sale.id });
 }

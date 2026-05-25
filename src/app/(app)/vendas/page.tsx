@@ -5,25 +5,12 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber, formatDate, kgToArrobas } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getSalesPageData } from "@/server/queries/sales";
 import { SaleDialog } from "./sale-dialog";
 
 export default async function VendasPage() {
   const { tenant } = await requireTenant();
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const lots = await prisma.cattleLot.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, code: true, farmId: true },
-  });
-  const sales = await prisma.sale.findMany({
-    where: { farm: { tenantId: tenant.id } },
-    include: { farm: { select: { name: true } } },
-    orderBy: { date: "desc" },
-  });
+  const { farms, lots, sales } = await getSalesPageData(tenant.id);
 
   return (
     <>

@@ -1,12 +1,13 @@
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getAreasPageData } from "@/server/queries/areas";
 import { AreaDialog } from "./area-dialog";
+
+type AreaRow = Awaited<ReturnType<typeof getAreasPageData>>["areas"][number];
 
 const areaTypeLabels: Record<string, string> = {
   PASTO: "Pasto", CURRAL: "Curral", PIQUETE: "Piquete",
@@ -15,19 +16,7 @@ const areaTypeLabels: Record<string, string> = {
 
 export default async function AreasPage() {
   const { tenant } = await requireTenant();
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const areas = await prisma.farmArea.findMany({
-    where: { farm: { tenantId: tenant.id }, active: true },
-    include: {
-      farm: { select: { name: true } },
-      _count: { select: { lots: { where: { status: "ACTIVE" } } } },
-    },
-    orderBy: [{ farm: { name: "asc" } }, { name: "asc" }],
-  });
+  const { farms, areas } = await getAreasPageData(tenant.id);
 
   return (
     <>
@@ -55,7 +44,7 @@ export default async function AreasPage() {
                     Nenhuma área cadastrada ainda.
                   </TableCell>
                 </TableRow>
-              ) : areas.map((area) => (
+              ) : areas.map((area: AreaRow) => (
                 <TableRow key={area.id}>
                   <TableCell className="font-medium">{area.name}</TableCell>
                   <TableCell>{areaTypeLabels[area.type ?? "OUTRO"] ?? area.type}</TableCell>

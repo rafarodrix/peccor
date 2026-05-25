@@ -1,16 +1,16 @@
-import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getCostsPageData } from "@/server/queries/costs";
 import { CostDialog } from "./cost-dialog";
 import { PayCostButton } from "./pay-cost-button";
+
+type CostRow = Awaited<ReturnType<typeof getCostsPageData>>["costs"][number];
 
 const categoryLabels: Record<string, string> = {
   FUNCIONARIO: "Funcionário", ENERGIA: "Energia", ARRENDAMENTO: "Arrendamento",
@@ -21,25 +21,20 @@ const categoryLabels: Record<string, string> = {
 
 export default async function CustosPage() {
   const { tenant } = await requireTenant();
+  const { farms, lots, costs } = await getCostsPageData(tenant.id);
 
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const lots = await prisma.cattleLot.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, code: true, farmId: true },
-  });
-  const costs = await prisma.cost.findMany({
-    where: { farm: { tenantId: tenant.id }, status: { not: "CANCELED" } },
-    include: { farm: { select: { name: true } }, lot: { select: { code: true } } },
-    orderBy: { date: "desc" },
-  });
-
-  const totalPaid = costs.filter((c) => c.status === "PAID").reduce((s, c) => s + Number(c.amount), 0);
-  const totalOpen = costs.filter((c) => c.status === "OPEN").reduce((s, c) => s + Number(c.amount), 0);
-  const totalFixed = costs.filter((c) => c.type === "FIXED").reduce((s, c) => s + Number(c.amount), 0);
-  const totalVariable = costs.filter((c) => c.type === "VARIABLE").reduce((s, c) => s + Number(c.amount), 0);
+  const totalPaid = costs
+    .filter((c: CostRow) => c.status === "PAID")
+    .reduce((s: number, c: CostRow) => s + Number(c.amount), 0);
+  const totalOpen = costs
+    .filter((c: CostRow) => c.status === "OPEN")
+    .reduce((s: number, c: CostRow) => s + Number(c.amount), 0);
+  const totalFixed = costs
+    .filter((c: CostRow) => c.type === "FIXED")
+    .reduce((s: number, c: CostRow) => s + Number(c.amount), 0);
+  const totalVariable = costs
+    .filter((c: CostRow) => c.type === "VARIABLE")
+    .reduce((s: number, c: CostRow) => s + Number(c.amount), 0);
 
   return (
     <>
@@ -87,7 +82,7 @@ export default async function CustosPage() {
                     Nenhum custo registrado ainda.
                   </TableCell>
                 </TableRow>
-              ) : costs.map((cost) => (
+              ) : costs.map((cost: CostRow) => (
                 <TableRow key={cost.id}>
                   <TableCell className="font-medium">{cost.description}</TableCell>
                   <TableCell>{categoryLabels[cost.category] ?? cost.category}</TableCell>

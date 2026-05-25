@@ -7,9 +7,10 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { getLots } from "@/server/queries/lots";
-import { prisma } from "@/lib/prisma";
+import { getLotsPageData } from "@/server/queries/lots";
 import { LotDialog } from "./lot-dialog";
+
+type LotRow = Awaited<ReturnType<typeof getLotsPageData>>["lots"][number];
 
 const phaseLabels: Record<string, string> = {
   CRIA: "Cria", RECRIA: "Recria", ENGORDA: "Engorda", TERMINACAO: "Terminação", CONFINAMENTO: "Confinamento",
@@ -23,16 +24,7 @@ const statusLabels: Record<string, string> = {
 
 export default async function LotesPage() {
   const { tenant } = await requireTenant();
-  const lots = await getLots(tenant.id);
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const areas = await prisma.farmArea.findMany({
-    where: { farm: { tenantId: tenant.id }, active: true },
-    select: { id: true, name: true, farmId: true },
-  });
+  const { lots, farms, areas } = await getLotsPageData(tenant.id);
 
   return (
     <>
@@ -63,7 +55,7 @@ export default async function LotesPage() {
                     Nenhum lote cadastrado ainda.
                   </TableCell>
                 </TableRow>
-              ) : lots.map((lot) => {
+              ) : lots.map((lot: LotRow) => {
                 const totalCost = lot.costs.reduce((s: number, c: { amount: unknown }) => s + Number(c.amount), 0);
                 return (
                   <TableRow key={lot.id}>

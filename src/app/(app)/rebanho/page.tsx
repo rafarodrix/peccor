@@ -8,7 +8,7 @@ import {
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
 import { getAnimals } from "@/server/queries/animals";
-import { prisma } from "@/lib/prisma";
+import { getFarmOptions, getLotOptions } from "@/server/queries/reference";
 import { AnimalDialog } from "./animal-dialog";
 
 const categoryLabels: Record<string, string> = {
@@ -24,16 +24,11 @@ const statusLabels: Record<string, string> = {
 
 export default async function RebanhoPage() {
   const { tenant } = await requireTenant();
-  const animals = await getAnimals(tenant.id);
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const lots = await prisma.cattleLot.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, code: true, farmId: true },
-  });
+  const [animals, farms, lots] = await Promise.all([
+    getAnimals(tenant.id),
+    getFarmOptions(tenant.id),
+    getLotOptions(tenant.id),
+  ]);
 
   return (
     <>

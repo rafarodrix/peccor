@@ -39,6 +39,7 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {
@@ -47,6 +48,9 @@ model Session {
   expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
 }
 
 // ─── Tenant / Multitenancy ────────────────────────────────────────────────────
@@ -79,6 +83,8 @@ model TenantUser {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, userId])
+  @@index([userId, active])
+  @@index([tenantId, role, active])
 }
 
 enum TenantRole {
@@ -141,6 +147,8 @@ model Farm {
   sales     Sale[]
   costs     Cost[]
   weighings Weighing[]
+
+  @@index([tenantId, active])
 }
 
 enum FarmOperation {
@@ -162,6 +170,8 @@ model FarmArea {
 
   farm Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lots CattleLot[]
+
+  @@index([farmId, active])
 }
 
 enum FarmAreaType {
@@ -199,6 +209,11 @@ model CattleLot {
   costs         Cost[]
   purchaseItems PurchaseItem[]
   saleItems     SaleItem[]
+
+  @@unique([farmId, code])
+  @@index([farmId, status])
+  @@index([areaId, status])
+  @@index([createdAt])
 }
 
 enum CattlePhase {
@@ -246,6 +261,11 @@ model Animal {
   movements     AnimalMovement[]
   purchaseItems PurchaseItem[]
   saleItems     SaleItem[]
+
+  @@index([farmId, status])
+  @@index([lotId, status])
+  @@index([tag])
+  @@index([entryDate])
 }
 
 enum AnimalSex {
@@ -295,6 +315,10 @@ model Purchase {
 
   farm  Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
   items PurchaseItem[]
+
+  @@index([farmId, date])
+  @@index([dueDate])
+  @@index([paidAt])
 }
 
 model PurchaseItem {
@@ -310,6 +334,10 @@ model PurchaseItem {
   purchase Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   lot      CattleLot? @relation(fields: [lotId], references: [id])
   animal   Animal?    @relation(fields: [animalId], references: [id])
+
+  @@index([purchaseId])
+  @@index([lotId])
+  @@index([animalId])
 }
 
 // ─── Sales ────────────────────────────────────────────────────────────────────
@@ -337,6 +365,10 @@ model Sale {
 
   farm  Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
   items SaleItem[]
+
+  @@index([farmId, date])
+  @@index([dueDate])
+  @@index([paidAt])
 }
 
 model SaleItem {
@@ -352,6 +384,10 @@ model SaleItem {
   sale   Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
   lot    CattleLot? @relation(fields: [lotId], references: [id])
   animal Animal?    @relation(fields: [animalId], references: [id])
+
+  @@index([saleId])
+  @@index([lotId])
+  @@index([animalId])
 }
 
 // ─── Weighings ────────────────────────────────────────────────────────────────
@@ -374,6 +410,10 @@ model Weighing {
   farm   Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lot    CattleLot? @relation(fields: [lotId], references: [id])
   animal Animal?    @relation(fields: [animalId], references: [id])
+
+  @@index([farmId, date])
+  @@index([lotId, date])
+  @@index([animalId, date])
 }
 
 // ─── Costs ────────────────────────────────────────────────────────────────────
@@ -398,6 +438,10 @@ model Cost {
 
   farm Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lot  CattleLot? @relation(fields: [lotId], references: [id])
+
+  @@index([farmId, status, date])
+  @@index([lotId, status])
+  @@index([dueDate])
 }
 
 enum CostType {
@@ -443,6 +487,9 @@ model HealthEvent {
   createdAt      DateTime        @default(now())
 
   animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@index([animalId, date])
+  @@index([type, date])
 }
 
 enum HealthEventType {
@@ -469,4 +516,8 @@ model AnimalMovement {
   createdAt  DateTime @default(now())
 
   animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  @@index([animalId, date])
+  @@index([fromLotId, date])
+  @@index([toLotId, date])
 }

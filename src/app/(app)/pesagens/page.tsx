@@ -5,33 +5,14 @@ import {
 import { formatNumber, formatDate } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getWeighingsPageData } from "@/server/queries/weighings";
 import { WeighingDialog } from "./weighing-dialog";
+
+type WeighingRow = Awaited<ReturnType<typeof getWeighingsPageData>>["weighings"][number];
 
 export default async function PesagensPage() {
   const { tenant } = await requireTenant();
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const lots = await prisma.cattleLot.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, code: true, farmId: true },
-  });
-  const animals = await prisma.animal.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, tag: true, farmId: true },
-  });
-  const weighings = await prisma.weighing.findMany({
-    where: { farm: { tenantId: tenant.id } },
-    include: {
-      lot: { select: { code: true } },
-      animal: { select: { tag: true } },
-    },
-    orderBy: { date: "desc" },
-    take: 200,
-  });
+  const { farms, lots, animals, weighings } = await getWeighingsPageData(tenant.id);
 
   return (
     <>
@@ -63,7 +44,7 @@ export default async function PesagensPage() {
                     Nenhuma pesagem registrada ainda.
                   </TableCell>
                 </TableRow>
-              ) : weighings.map((w) => {
+              ) : weighings.map((w: WeighingRow) => {
                 const dailyGain = w.dailyGain ? Number(w.dailyGain) : null;
                 return (
                   <TableRow key={w.id}>

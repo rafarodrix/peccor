@@ -1,41 +1,47 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/services/tenant";
 import { HealthEventSchema } from "@/lib/validations/health";
+import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import { revalidatePaths } from "@/server/lib/revalidate-paths";
+import { requirePermission } from "@/server/services/tenant";
 
-export async function createHealthEvent(data: unknown) {
+export async function createHealthEvent(data: unknown): Promise<ActionResult> {
   const { error, tenantUser } = await requirePermission("health:create");
-  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+  if (error || !tenantUser) return fail(error ?? "Sem permissao", "FORBIDDEN");
 
   const parsed = HealthEventSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Dados invalidos", "VALIDATION_ERROR");
+  }
 
   const animal = await prisma.animal.findFirst({
     where: { id: parsed.data.animalId, farm: { tenantId: tenantUser.tenant.id } },
   });
-  if (!animal) return { error: "Animal não encontrado" };
+  if (!animal) return fail("Animal nao encontrado", "ANIMAL_NOT_FOUND");
 
   const { date, ...rest } = parsed.data;
-  await prisma.healthEvent.create({
-    data: { ...rest, date: new Date(date) },
-  });
 
-  if (parsed.data.type === "MORTE") {
-    await prisma.animal.update({
-      where: { id: parsed.data.animalId },
-      data: { status: "DEAD", exitDate: new Date() },
+  await prisma.$transaction(async (tx) => {
+    await tx.healthEvent.create({
+      data: { ...rest, date: new Date(date) },
     });
 
-    if (animal.lotId) {
-      await prisma.cattleLot.update({
-        where: { id: animal.lotId },
-        data: { currentQuantity: { decrement: 1 } },
+    if (parsed.data.type === "MORTE") {
+      await tx.animal.update({
+        where: { id: parsed.data.animalId },
+        data: { status: "DEAD", exitDate: new Date() },
       });
-    }
-  }
 
-  revalidatePath("/manejo-sanitario");
-  return { success: true };
+      if (animal.lotId) {
+        await tx.cattleLot.update({
+          where: { id: animal.lotId },
+          data: { currentQuantity: { decrement: 1 } },
+        });
+      }
+    }
+  });
+
+  revalidatePaths(["/manejo-sanitario", "/rebanho"]);
+  return ok();
 }

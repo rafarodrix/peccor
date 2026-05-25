@@ -1,22 +1,27 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/server/services/tenant";
-import { PurchaseSchema } from "@/lib/validations/purchase";
 import { calcPurchaseTotalCost } from "@/lib/utils";
+import { PurchaseSchema } from "@/lib/validations/purchase";
+import { fail, ok, type ActionResult } from "@/server/lib/action-result";
+import { revalidatePaths } from "@/server/lib/revalidate-paths";
+import { requirePermission } from "@/server/services/tenant";
 
-export async function createPurchase(data: unknown) {
+export async function createPurchase(
+  data: unknown
+): Promise<ActionResult<{ id: string }>> {
   const { error, tenantUser } = await requirePermission("purchases:create");
-  if (error || !tenantUser) return { error: error ?? "Sem permissão" };
+  if (error || !tenantUser) return fail(error ?? "Sem permissao", "FORBIDDEN");
 
   const parsed = PurchaseSchema.safeParse(data);
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Dados invalidos", "VALIDATION_ERROR");
+  }
 
   const farm = await prisma.farm.findFirst({
     where: { id: parsed.data.farmId, tenantId: tenantUser.tenant.id },
   });
-  if (!farm) return { error: "Fazenda não encontrada" };
+  if (!farm) return fail("Fazenda nao encontrada", "FARM_NOT_FOUND");
 
   const { date, dueDate, lotId, ...rest } = parsed.data;
   const totalValue = calcPurchaseTotalCost(
@@ -26,29 +31,29 @@ export async function createPurchase(data: unknown) {
     rest.otherCosts
   );
 
-  const purchase = await prisma.purchase.create({
-    data: {
-      ...rest,
-      date: new Date(date),
-      dueDate: dueDate ? new Date(dueDate) : null,
-      totalValue,
-      items: lotId
-        ? {
-            create: {
-              lotId,
-              quantity: rest.quantity,
-              avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
-              totalValue,
-            },
-          }
-        : undefined,
-    },
-  });
+  const purchase = await prisma.$transaction(async (tx) => {
+    const createdPurchase = await tx.purchase.create({
+      data: {
+        ...rest,
+        date: new Date(date),
+        dueDate: dueDate ? new Date(dueDate) : null,
+        totalValue,
+        items: lotId
+          ? {
+              create: {
+                lotId,
+                quantity: rest.quantity,
+                avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
+                totalValue,
+              },
+            }
+          : undefined,
+      },
+      select: { id: true },
+    });
 
-  if (lotId) {
-    const lot = await prisma.cattleLot.findUnique({ where: { id: lotId } });
-    if (lot) {
-      await prisma.cattleLot.update({
+    if (lotId) {
+      await tx.cattleLot.update({
         where: { id: lotId },
         data: {
           currentQuantity: { increment: rest.quantity },
@@ -56,9 +61,10 @@ export async function createPurchase(data: unknown) {
         },
       });
     }
-  }
 
-  revalidatePath("/compras");
-  revalidatePath("/dashboard");
-  return { success: true, id: purchase.id };
+    return createdPurchase;
+  });
+
+  revalidatePaths(["/compras", "/dashboard"]);
+  return ok({ id: purchase.id });
 }

@@ -19,10 +19,14 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { getLotById } from "@/server/queries/lots";
-import { prisma } from "@/lib/prisma";
+import { getLotById, getLotFinancialSnapshot } from "@/server/queries/lots";
 import { WeightChart } from "@/components/charts/weight-chart";
 import { GmdChart } from "@/components/charts/gmd-chart";
+
+type LotDetail = NonNullable<Awaited<ReturnType<typeof getLotById>>>;
+type LotCost = LotDetail["costs"][number];
+type LotAnimal = LotDetail["animals"][number];
+type LotWeighing = LotDetail["weighings"][number];
 
 const phaseLabels: Record<string, string> = {
   CRIA: "Cria",
@@ -121,26 +125,11 @@ export default async function LotDetailPage({
 
   // Total costs excluding CANCELED
   const totalCost = lot.costs
-    .filter((c) => c.status !== "CANCELED")
-    .reduce((sum, c) => sum + Number(c.amount), 0);
+    .filter((c: LotCost) => c.status !== "CANCELED")
+    .reduce((sum: number, c: LotCost) => sum + Number(c.amount), 0);
 
   // Sales linked to this lot
-  const sales = await prisma.sale.findMany({
-    where: {
-      items: { some: { lotId: lot.id } },
-    },
-    include: {
-      items: { where: { lotId: lot.id } },
-    },
-  });
-
-  const totalRevenue = sales.reduce((sum, sale) => {
-    const lotRevenue = sale.items.reduce(
-      (s, item) => s + Number(item.totalValue),
-      0
-    );
-    return sum + lotRevenue;
-  }, 0);
+  const { totalRevenue } = await getLotFinancialSnapshot(lot.id);
 
   const resultado = totalRevenue - totalCost;
 
@@ -278,7 +267,7 @@ export default async function LotDetailPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  lot.animals.map((animal) => (
+                  lot.animals.map((animal: LotAnimal) => (
                     <TableRow key={animal.id}>
                       <TableCell className="font-medium">
                         <Link
@@ -388,7 +377,7 @@ export default async function LotDetailPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  lot.weighings.map((w) => {
+                  lot.weighings.map((w: LotWeighing) => {
                     const gmd = w.dailyGain ? Number(w.dailyGain) : null;
                     return (
                       <TableRow key={w.id}>
@@ -453,7 +442,7 @@ export default async function LotDetailPage({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  lot.costs.map((cost) => (
+                  lot.costs.map((cost: LotCost) => (
                     <TableRow key={cost.id}>
                       <TableCell>{formatDate(cost.date)}</TableCell>
                       <TableCell>{cost.description}</TableCell>

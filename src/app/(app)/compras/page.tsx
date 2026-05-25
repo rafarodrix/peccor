@@ -1,30 +1,18 @@
 import { Header } from "@/components/layout/header";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getPurchasesPageData } from "@/server/queries/purchases";
 import { PurchaseDialog } from "./purchase-dialog";
+
+type PurchaseRow = Awaited<ReturnType<typeof getPurchasesPageData>>["purchases"][number];
 
 export default async function ComprasPage() {
   const { tenant } = await requireTenant();
-
-  const farms = await prisma.farm.findMany({
-    where: { tenantId: tenant.id, active: true },
-    select: { id: true, name: true },
-  });
-  const lots = await prisma.cattleLot.findMany({
-    where: { farm: { tenantId: tenant.id }, status: "ACTIVE" },
-    select: { id: true, code: true, farmId: true },
-  });
-  const purchases = await prisma.purchase.findMany({
-    where: { farm: { tenantId: tenant.id } },
-    include: { farm: { select: { name: true } } },
-    orderBy: { date: "desc" },
-  });
+  const { farms, lots, purchases } = await getPurchasesPageData(tenant.id);
 
   return (
     <>
@@ -57,7 +45,7 @@ export default async function ComprasPage() {
                     Nenhuma compra registrada ainda.
                   </TableCell>
                 </TableRow>
-              ) : purchases.map((purchase) => {
+              ) : purchases.map((purchase: PurchaseRow) => {
                 const totalValue = Number(purchase.totalValue);
                 const costPerHead = totalValue / purchase.quantity;
                 const totalWeight = purchase.totalWeight ? Number(purchase.totalWeight) : null;

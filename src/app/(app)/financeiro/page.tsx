@@ -6,31 +6,26 @@ import {
 } from "@/components/ui/table";
 import { formatCurrency, formatNumber, kgToArrobas } from "@/lib/utils";
 import { requireTenant } from "@/server/services/tenant";
-import { prisma } from "@/lib/prisma";
+import { getFinancePageData } from "@/server/queries/finance";
+
+type FinanceSaleRow = Awaited<ReturnType<typeof getFinancePageData>>["sales"][number];
+type FinanceCostRow = Awaited<ReturnType<typeof getFinancePageData>>["costs"][number];
 
 export default async function FinanceiroPage() {
   const { tenant } = await requireTenant();
+  const { sales, costs } = await getFinancePageData(tenant.id);
 
-  const [sales, costs] = await Promise.all([
-    prisma.sale.findMany({
-      where: { farm: { tenantId: tenant.id } },
-      include: {
-        farm: { select: { name: true } },
-        items: { include: { lot: { select: { code: true } } } },
-      },
-      orderBy: { date: "desc" },
-    }),
-    prisma.cost.findMany({
-      where: { farm: { tenantId: tenant.id }, status: { not: "CANCELED" } },
-      select: { amount: true, type: true, lotId: true },
-    }),
-  ]);
-
-  const totalRevenue = sales.reduce((s, sale) => s + Number(sale.netValue), 0);
-  const totalCosts = costs.reduce((s, c) => s + Number(c.amount), 0);
+  const totalRevenue = sales.reduce(
+    (s: number, sale: FinanceSaleRow) => s + Number(sale.netValue),
+    0
+  );
+  const totalCosts = costs.reduce(
+    (s: number, c: FinanceCostRow) => s + Number(c.amount),
+    0
+  );
   const netResult = totalRevenue - totalCosts;
 
-  const costsByLot = costs.reduce<Record<string, number>>((acc, c) => {
+  const costsByLot = costs.reduce<Record<string, number>>((acc: Record<string, number>, c: FinanceCostRow) => {
     if (c.lotId) acc[c.lotId] = (acc[c.lotId] ?? 0) + Number(c.amount);
     return acc;
   }, {});
@@ -85,7 +80,7 @@ export default async function FinanceiroPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sales.map((sale) => {
+                  {sales.map((sale: FinanceSaleRow) => {
                     const linkedLotId = sale.items[0]?.lotId;
                     const lotCosts = linkedLotId ? (costsByLot[linkedLotId] ?? 0) : 0;
                     const netValue = Number(sale.netValue);
