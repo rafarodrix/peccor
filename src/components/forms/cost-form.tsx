@@ -40,7 +40,7 @@ export function CostForm({ farms, lots, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CostInput>({
-    resolver: zodResolver(CostSchema),
+    resolver: zodResolver(CostSchema) as any,
     defaultValues: {
       farmId: farms[0]?.id,
       type: "VARIABLE",

@@ -34,7 +34,7 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AnimalInput>({
-    resolver: zodResolver(AnimalSchema),
+    resolver: zodResolver(AnimalSchema) as any,
     defaultValues: {
       farmId: farms[0]?.id,
       sex: "MALE",

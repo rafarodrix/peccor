@@ -31,7 +31,7 @@ export function WeightChart({ data, targetGain = 1.2 }: Props) {
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} unit=" kg" width={64} />
         <Tooltip
-          formatter={(value: number) => [`${value.toFixed(1)} kg`, "Peso"]}
+          formatter={(value: any) => [`${Number(value).toFixed(1)} kg`, "Peso"]}
           labelStyle={{ fontWeight: 600 }}
         />
         <Line

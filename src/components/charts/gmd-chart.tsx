@@ -30,7 +30,7 @@ export function GmdChart({ data, target = 1.2 }: Props) {
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} unit=" kg/d" width={64} />
         <Tooltip
-          formatter={(value: number) => [`${value.toFixed(3)} kg/d`, "GMD"]}
+          formatter={(value: any) => [`${Number(value).toFixed(3)} kg/d`, "GMD"]}
           labelStyle={{ fontWeight: 600 }}
         />
         <ReferenceLine y={target} stroke="hsl(47.9 95.8% 53.1%)" strokeDasharray="4 4" label={{ value: `Meta ${target}`, fontSize: 11 }} />

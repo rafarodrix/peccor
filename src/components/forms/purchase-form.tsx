@@ -23,7 +23,7 @@ export function PurchaseForm({ farms, lots, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<PurchaseInput>({
-    resolver: zodResolver(PurchaseSchema),
+    resolver: zodResolver(PurchaseSchema) as any,
     defaultValues: {
       farmId: farms[0]?.id,
       date: new Date().toISOString().split("T")[0],

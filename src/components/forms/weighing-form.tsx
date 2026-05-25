@@ -24,7 +24,7 @@ export function WeighingForm({ farms, lots, animals, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<WeighingInput>({
-    resolver: zodResolver(WeighingSchema),
+    resolver: zodResolver(WeighingSchema) as any,
     defaultValues: {
       farmId: farms[0]?.id,
       date: new Date().toISOString().split("T")[0],

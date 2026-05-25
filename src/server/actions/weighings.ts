@@ -3,9 +3,9 @@
 import { prisma } from "@/lib/prisma";
 import { WeighingSchema } from "@/lib/validations/weighing";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
-import type { PrismaTransactionClient } from "@/server/lib/prisma-types";
 import { revalidatePaths } from "@/server/lib/revalidate-paths";
 import { requirePermission } from "@/server/services/tenant";
+import { WeighingService } from "@/server/services/weighing-service";
 
 export async function createWeighing(data: unknown): Promise<ActionResult> {
   const { error, tenantUser } = await requirePermission("weighings:create");
@@ -21,68 +21,25 @@ export async function createWeighing(data: unknown): Promise<ActionResult> {
   });
   if (!farm) return fail("Fazenda nao encontrada", "FARM_NOT_FOUND");
 
-  const { date, animalId, lotId, ...rest } = parsed.data;
+  const { date, animalId, lotId, weight, responsible, notes } = parsed.data;
 
-  let previousWeight: number | null = null;
-  let daysSinceLast: number | null = null;
+  try {
+    const weighingService = new WeighingService();
+    await weighingService.registerWeighing({
+      farmId: parsed.data.farmId,
+      animalId,
+      lotId,
+      date: new Date(date),
+      weight,
+      responsible,
+      notes,
+    });
 
-  if (animalId) {
-    const prev = await prisma.weighing.findFirst({
-      where: { animalId },
-      orderBy: { date: "desc" },
-    });
-    if (prev) {
-      previousWeight = Number(prev.weight);
-      daysSinceLast = Math.round(
-        (new Date(date).getTime() - prev.date.getTime()) / 86400000
-      );
-    }
-  } else if (lotId) {
-    const prev = await prisma.weighing.findFirst({
-      where: { lotId, animalId: null },
-      orderBy: { date: "desc" },
-    });
-    if (prev) {
-      previousWeight = Number(prev.weight);
-      daysSinceLast = Math.round(
-        (new Date(date).getTime() - prev.date.getTime()) / 86400000
-      );
-    }
+    revalidatePaths(["/pesagens", "/rebanho", "/lotes"]);
+    return ok();
+  } catch (err) {
+    console.error("createWeighing action error", err);
+    return fail("Erro interno ao salvar pesagem", "INTERNAL_ERROR");
   }
-
-  const weightGain = previousWeight !== null ? rest.weight - previousWeight : null;
-  const dailyGain =
-    weightGain !== null && daysSinceLast && daysSinceLast > 0
-      ? weightGain / daysSinceLast
-      : null;
-
-  await prisma.$transaction(async (tx: PrismaTransactionClient) => {
-    await tx.weighing.create({
-      data: {
-        ...rest,
-        date: new Date(date),
-        animalId: animalId ?? null,
-        lotId: lotId ?? null,
-        previousWeight,
-        weightGain,
-        daysSinceLast,
-        dailyGain,
-      },
-    });
-
-    if (animalId) {
-      await tx.animal.update({
-        where: { id: animalId },
-        data: { currentWeight: rest.weight },
-      });
-    } else if (lotId) {
-      await tx.cattleLot.update({
-        where: { id: lotId },
-        data: { currentAvgWeight: rest.weight },
-      });
-    }
-  });
-
-  revalidatePaths(["/pesagens", "/rebanho", "/lotes"]);
-  return ok();
 }
+

@@ -32,7 +32,7 @@ export function LotForm({ farms, areas, lot, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LotInput>({
-    resolver: zodResolver(LotSchema),
+    resolver: zodResolver(LotSchema) as any,
     defaultValues: lot
       ? {
           farmId: lot.farmId,

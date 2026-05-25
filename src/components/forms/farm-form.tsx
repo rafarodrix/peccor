@@ -34,7 +34,7 @@ export function FarmForm({ farm, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<FarmInput>({
-    resolver: zodResolver(FarmSchema),
+    resolver: zodResolver(FarmSchema) as any,
     defaultValues: farm
       ? {
           name: farm.name,

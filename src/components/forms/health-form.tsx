@@ -31,7 +31,7 @@ export function HealthForm({ animals, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<HealthEventInput>({
-    resolver: zodResolver(HealthEventSchema),
+    resolver: zodResolver(HealthEventSchema) as any,
     defaultValues: {
       type: "VACINA",
       date: new Date().toISOString().split("T")[0],

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/server/services/tenant";
+import { WeighingService } from "@/server/services/weighing-service";
 
 // ─── Animal Import ─────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ export async function importWeighings(farmId: string, rows: WeighingImportRow[])
     animals.filter((a) => a.tag).map((a) => [a.tag!.toLowerCase(), a.id])
   );
 
-  const weighingData = rows
+  const itemsToImport = rows
     .filter((row) => row.weight > 0 && row.date)
     .map((row) => {
       let lotId: string | null = null;
@@ -124,21 +125,16 @@ export async function importWeighings(farmId: string, rows: WeighingImportRow[])
       }
 
       return {
-        farmId,
         lotId,
         animalId,
         date: new Date(row.date),
         weight: row.weight,
         responsible: row.responsible || null,
-        previousWeight: null,
-        weightGain: null,
-        daysSinceLast: null,
-        dailyGain: null,
       };
     })
-    .filter((row) => row.lotId !== null || row.animalId !== null);
+    .filter((item) => item.lotId !== null || item.animalId !== null);
 
-  if (weighingData.length === 0) {
+  if (itemsToImport.length === 0) {
     return {
       error:
         "Nenhuma linha válida encontrada. Certifique-se de que os brincos e códigos de lote existem na fazenda selecionada.",
@@ -146,8 +142,9 @@ export async function importWeighings(farmId: string, rows: WeighingImportRow[])
   }
 
   try {
-    await prisma.weighing.createMany({ data: weighingData });
-    return { success: true, count: weighingData.length };
+    const weighingService = new WeighingService();
+    const result = await weighingService.registerBatchWeighings(farmId, itemsToImport);
+    return { success: true, count: result.count };
   } catch (err) {
     console.error("importWeighings error", err);
     return { error: "Erro ao importar pesagens." };

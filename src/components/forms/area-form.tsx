@@ -32,7 +32,7 @@ export function AreaForm({ farms, area, defaultFarmId, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AreaInput>({
-    resolver: zodResolver(AreaSchema),
+    resolver: zodResolver(AreaSchema) as any,
     defaultValues: area
       ? { farmId: area.farmId, name: area.name, type: area.type, capacityHead: area.capacityHead ?? undefined }
       : { farmId: defaultFarmId ?? farms[0]?.id, type: "PASTO" },
