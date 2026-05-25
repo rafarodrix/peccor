@@ -1,12 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { calcPurchaseTotalCost } from "@/lib/utils";
 import { PurchaseSchema } from "@/lib/validations/purchase";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
-import type { PrismaTransactionClient } from "@/server/lib/prisma-types";
 import { revalidatePaths } from "@/server/lib/revalidate-paths";
 import { requirePermission } from "@/server/services/tenant";
+import { FinanceService } from "@/server/services/finance-service";
 
 export async function createPurchase(
   data: unknown
@@ -25,47 +24,21 @@ export async function createPurchase(
   if (!farm) return fail("Fazenda nao encontrada", "FARM_NOT_FOUND");
 
   const { date, dueDate, lotId, ...rest } = parsed.data;
-  const totalValue = calcPurchaseTotalCost(
-    rest.animalValue,
-    rest.freightValue,
-    rest.commissionValue,
-    rest.otherCosts
-  );
 
-  const purchase = await prisma.$transaction(async (tx: PrismaTransactionClient) => {
-    const createdPurchase = await tx.purchase.create({
-      data: {
-        ...rest,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        totalValue,
-        items: lotId
-          ? {
-              create: {
-                lotId,
-                quantity: rest.quantity,
-                avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
-                totalValue,
-              },
-            }
-          : undefined,
-      },
-      select: { id: true },
+  try {
+    const financeService = new FinanceService();
+    const purchase = await financeService.registerPurchase({
+      ...rest,
+      lotId,
+      date: new Date(date),
+      dueDate: dueDate ? new Date(dueDate) : null,
     });
 
-    if (lotId) {
-      await tx.cattleLot.update({
-        where: { id: lotId },
-        data: {
-          currentQuantity: { increment: rest.quantity },
-          initialQuantity: { increment: rest.quantity },
-        },
-      });
-    }
-
-    return createdPurchase;
-  });
-
-  revalidatePaths(["/compras", "/dashboard"]);
-  return ok({ id: purchase.id });
+    revalidatePaths(["/compras", "/dashboard"]);
+    return ok({ id: purchase.id });
+  } catch (err) {
+    console.error("createPurchase action error", err);
+    return fail("Erro interno ao registrar compra", "INTERNAL_ERROR");
+  }
 }
+

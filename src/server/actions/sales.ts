@@ -1,11 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { calcSaleNetValue } from "@/lib/utils";
 import { SaleSchema } from "@/lib/validations/sale";
 import { fail, ok, type ActionResult } from "@/server/lib/action-result";
 import { revalidatePaths } from "@/server/lib/revalidate-paths";
 import { requirePermission } from "@/server/services/tenant";
+import { FinanceService } from "@/server/services/finance-service";
 
 export async function createSale(data: unknown): Promise<ActionResult<{ id: string }>> {
   const { error, tenantUser } = await requirePermission("sales:create");
@@ -22,53 +22,21 @@ export async function createSale(data: unknown): Promise<ActionResult<{ id: stri
   if (!farm) return fail("Fazenda nao encontrada", "FARM_NOT_FOUND");
 
   const { date, dueDate, lotId, ...rest } = parsed.data;
-  const netValue = calcSaleNetValue(
-    rest.animalValue,
-    rest.freightValue,
-    rest.commissionValue,
-    rest.discountValue
-  );
 
-  const sale = await prisma.$transaction(async (tx) => {
-    const createdSale = await tx.sale.create({
-      data: {
-        ...rest,
-        totalValue: rest.animalValue,
-        netValue,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        items: lotId
-          ? {
-              create: {
-                lotId,
-                quantity: rest.quantity,
-                avgWeight: rest.totalWeight ? rest.totalWeight / rest.quantity : null,
-                totalValue: netValue,
-              },
-            }
-          : undefined,
-      },
-      select: { id: true },
+  try {
+    const financeService = new FinanceService();
+    const sale = await financeService.registerSale({
+      ...rest,
+      lotId,
+      date: new Date(date),
+      dueDate: dueDate ? new Date(dueDate) : null,
     });
 
-    if (lotId) {
-      const updatedLot = await tx.cattleLot.update({
-        where: { id: lotId },
-        data: { currentQuantity: { decrement: rest.quantity } },
-        select: { currentQuantity: true },
-      });
-
-      if (updatedLot.currentQuantity <= 0) {
-        await tx.cattleLot.update({
-          where: { id: lotId },
-          data: { status: "SOLD", endDate: new Date() },
-        });
-      }
-    }
-
-    return createdSale;
-  });
-
-  revalidatePaths(["/vendas", "/dashboard"]);
-  return ok({ id: sale.id });
+    revalidatePaths(["/vendas", "/dashboard"]);
+    return ok({ id: sale.id });
+  } catch (err) {
+    console.error("createSale action error", err);
+    return fail("Erro interno ao registrar venda", "INTERNAL_ERROR");
+  }
 }
+

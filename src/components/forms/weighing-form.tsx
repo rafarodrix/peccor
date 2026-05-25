@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { FormField } from "@/components/ui/form-field";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { WeighingSchema, type WeighingInput } from "@/lib/validations/weighing";
@@ -45,58 +45,49 @@ export function WeighingForm({ farms, lots, animals, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid gap-2">
-        <Label>Fazenda *</Label>
+      <FormField label="Fazenda" required error={errors.farmId?.message}>
         <Select value={watch("farmId")} onValueChange={(v) => { setValue("farmId", v); setValue("lotId", null); setValue("animalId", null); }}>
           <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
           <SelectContent>
             {farms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        {errors.farmId && <p className="text-xs text-destructive">{errors.farmId.message}</p>}
-      </div>
+      </FormField>
 
       <div className="grid grid-cols-2 gap-3">
-        <div className="grid gap-2">
-          <Label>Lote (pesagem por lote)</Label>
+        <FormField label="Lote (pesagem por lote)" error={errors.lotId?.message}>
           <Select value={watch("lotId") ?? ""} onValueChange={(v) => { setValue("lotId", v || null); setValue("animalId", null); }}>
             <SelectTrigger><SelectValue placeholder="Selecionar lote" /></SelectTrigger>
             <SelectContent>
               {filteredLots.map((l) => <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label>Animal (pesagem individual)</Label>
+        </FormField>
+        <FormField label="Animal (pesagem individual)" error={errors.animalId?.message}>
           <Select value={watch("animalId") ?? ""} onValueChange={(v) => { setValue("animalId", v || null); setValue("lotId", null); }}>
             <SelectTrigger><SelectValue placeholder="Selecionar animal" /></SelectTrigger>
             <SelectContent>
               {filteredAnimals.map((a) => <SelectItem key={a.id} value={a.id}>{a.tag ?? a.id.slice(-6)}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
+        </FormField>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="grid gap-2">
-          <Label>Data *</Label>
+        <FormField label="Data" required error={errors.date?.message}>
           <Input type="date" {...register("date")} />
-        </div>
-        <div className="grid gap-2">
-          <Label>Peso atual (kg) *</Label>
+        </FormField>
+        <FormField label="Peso atual (kg)" required error={errors.weight?.message}>
           <Input type="number" step="0.01" {...register("weight")} placeholder="320" />
-          {errors.weight && <p className="text-xs text-destructive">{errors.weight.message}</p>}
-        </div>
-        <div className="grid gap-2">
-          <Label>Responsável</Label>
+        </FormField>
+        <FormField label="Responsável" error={errors.responsible?.message}>
           <Input {...register("responsible")} placeholder="João Silva" />
-        </div>
+        </FormField>
       </div>
 
-      <div className="grid gap-2">
-        <Label>Observações</Label>
+      <FormField label="Observações" error={errors.notes?.message}>
         <Textarea {...register("notes")} rows={2} />
-      </div>
+      </FormField>
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onSuccess}>Cancelar</Button>
