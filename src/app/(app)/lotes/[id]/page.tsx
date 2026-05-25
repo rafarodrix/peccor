@@ -22,6 +22,7 @@ import { requireTenant } from "@/server/services/tenant";
 import { getLotById, getLotFinancialSnapshot } from "@/server/queries/lots";
 import { WeightChart } from "@/components/charts/weight-chart";
 import { GmdChart } from "@/components/charts/gmd-chart";
+import { LotProjectionCard } from "@/components/lots/lot-projection-card";
 
 type LotDetail = NonNullable<Awaited<ReturnType<typeof getLotById>>>;
 type LotCost = LotDetail["costs"][number];
@@ -479,6 +480,18 @@ export default async function LotDetailPage({
             </Table>
           </CardContent>
         </Card>
+
+        {/* Projection */}
+        <LotProjectionCard
+          currentAvgWeight={lot.currentAvgWeight ? Number(lot.currentAvgWeight) : 0}
+          currentQuantity={lot.currentQuantity}
+          lastDailyGain={
+            lot.weighings[0]?.dailyGain != null
+              ? Number(lot.weighings[0].dailyGain)
+              : null
+          }
+          totalCost={totalCost}
+        />
 
         {/* Financial summary */}
         <Card>

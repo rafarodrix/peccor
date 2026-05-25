@@ -18,6 +18,8 @@ import {
   MapPin,
   Users,
   ShieldCheck,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
@@ -34,6 +36,8 @@ const navItems = [
   { href: "/custos", label: "Custos", icon: DollarSign },
   { href: "/manejo-sanitario", label: "Manejo Sanitário", icon: Heart },
   { href: "/financeiro", label: "Financeiro", icon: TrendingUp },
+  { href: "/relatorios", label: "Relatórios", icon: FileText },
+  { href: "/importar", label: "Importar", icon: Upload },
 ];
 
 const configItems = [
