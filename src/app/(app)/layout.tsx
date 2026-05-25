@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import { cache } from "react";
-import { Sidebar } from "@/components/layout/sidebar";
+import { AppShell } from "@/components/layout/app-shell";
 import { getCurrentTenant } from "@/server/services/tenant";
 import { getAlerts } from "@/server/queries/alerts";
 import type { Alert } from "@/server/queries/alerts";
@@ -13,17 +14,10 @@ export const getLayoutAlerts = cache(async (): Promise<Alert[]> => {
   return getAlerts(tenantUser.tenantId);
 });
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: ReactNode }) {
   // Warm the cache so that any page calling getLayoutAlerts() in the same
   // request gets the already-fetched result.
   await getLayoutAlerts();
 
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <main className="flex flex-1 flex-col overflow-y-auto pl-64">
-        {children}
-      </main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

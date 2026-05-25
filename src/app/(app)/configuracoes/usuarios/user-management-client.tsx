@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
 import { Plus, UserMinus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { UserInviteForm } from "@/components/forms/user-form";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserInviteForm } from "@/components/forms/user-form";
-import { ROLE_LABELS, ROLE_DESCRIPTIONS } from "@/lib/permissions";
-import { updateUserRole, removeUser } from "@/server/actions/users";
+import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/permissions";
+import { removeUser, updateUserRole } from "@/server/actions/users";
 
 type TenantRole = keyof typeof ROLE_LABELS;
 
@@ -78,65 +78,127 @@ export function UserManagementClient({ users }: { users: UserEntry[] }) {
           <CardTitle>Membros da organização</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Perfil de acesso</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Alterar perfil</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((u) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.user.name ?? "—"}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.user.email}</TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[u.role]}`}>
-                      {ROLE_LABELS[u.role]}
+          <div className="space-y-3 md:hidden">
+            {users.map((userEntry) => (
+              <article key={userEntry.id} className="rounded-xl border p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{userEntry.user.name ?? "—"}</p>
+                    <p className="text-sm text-muted-foreground">{userEntry.user.email}</p>
+                  </div>
+                  <Badge variant={userEntry.active ? "success" : "secondary"}>
+                    {userEntry.active ? "Ativo" : "Inativo"}
+                  </Badge>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Perfil atual</p>
+                    <span className={`mt-1 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[userEntry.role]}`}>
+                      {ROLE_LABELS[userEntry.role]}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={u.active ? "success" : "secondary"}>
-                      {u.active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-xs uppercase tracking-wide text-muted-foreground">Alterar perfil</p>
                     <Select
-                      value={u.role}
-                      onValueChange={(v) => handleRoleChange(u.user.id, v as TenantRole)}
+                      value={userEntry.role}
+                      onValueChange={(value) => handleRoleChange(userEntry.user.id, value as TenantRole)}
                       disabled={pending}
                     >
-                      <SelectTrigger className="w-40">
+                      <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ROLES.map((r) => (
-                          <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                        {ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {ROLE_LABELS[role]}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </TableCell>
-                  <TableCell>
-                    {u.role !== "OWNER" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleRemove(u.user.id)}
+                    <p className="mt-2 text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[userEntry.role]}</p>
+                  </div>
+
+                  {userEntry.role !== "OWNER" && (
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive hover:text-destructive"
+                      onClick={() => handleRemove(userEntry.user.id)}
+                      disabled={pending}
+                    >
+                      <UserMinus className="h-4 w-4" />
+                      Remover usuário
+                    </Button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Perfil de acesso</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Alterar perfil</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((userEntry) => (
+                  <TableRow key={userEntry.id}>
+                    <TableCell className="font-medium">{userEntry.user.name ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{userEntry.user.email}</TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${ROLE_COLORS[userEntry.role]}`}>
+                        {ROLE_LABELS[userEntry.role]}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={userEntry.active ? "success" : "secondary"}>
+                        {userEntry.active ? "Ativo" : "Inativo"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={userEntry.role}
+                        onValueChange={(value) => handleRoleChange(userEntry.user.id, value as TenantRole)}
                         disabled={pending}
                       >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>
+                              {ROLE_LABELS[role]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      {userEntry.role !== "OWNER" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleRemove(userEntry.user.id)}
+                          disabled={pending}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

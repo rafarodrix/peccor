@@ -4,15 +4,15 @@ import { useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import type { CattleLot, Farm } from "@prisma/client";
+import { createAnimal } from "@/server/actions/animals";
+import { AnimalSchema, type AnimalInput } from "@/lib/validations/animal";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { FormField } from "@/components/ui/form-field";
 import { DatePicker } from "@/components/ui/date-picker";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AnimalSchema, type AnimalInput } from "@/lib/validations/animal";
-import { createAnimal } from "@/server/actions/animals";
-import type { CattleLot, Farm } from "@prisma/client";
 
 interface Props {
   farms: Pick<Farm, "id" | "name">[];
@@ -34,7 +34,13 @@ const CATEGORIES = [
 export function AnimalForm({ farms, lots, onSuccess }: Props) {
   const [pending, startTransition] = useTransition();
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AnimalInput>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<AnimalInput>({
     resolver: zodResolver(AnimalSchema) as any,
     defaultValues: {
       farmId: farms[0]?.id,
@@ -45,7 +51,7 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
   });
 
   const selectedFarmId = watch("farmId");
-  const filteredLots = lots.filter((l) => l.farmId === selectedFarmId);
+  const filteredLots = lots.filter((lot) => lot.farmId === selectedFarmId);
 
   function onSubmit(data: AnimalInput) {
     startTransition(async () => {
@@ -57,46 +63,77 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label="Fazenda" required error={errors.farmId?.message}>
-          <Select value={watch("farmId")} onValueChange={(v) => { setValue("farmId", v); setValue("lotId", null); }}>
-            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+          <Select
+            value={watch("farmId")}
+            onValueChange={(value) => {
+              setValue("farmId", value);
+              setValue("lotId", null);
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione..." />
+            </SelectTrigger>
             <SelectContent>
-              {farms.map((f) => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+              {farms.map((farm) => (
+                <SelectItem key={farm.id} value={farm.id}>
+                  {farm.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>
+
         <FormField label="Lote (opcional)" error={errors.lotId?.message}>
-          <Select value={watch("lotId") ?? ""} onValueChange={(v) => setValue("lotId", v || null)}>
-            <SelectTrigger><SelectValue placeholder="Sem lote" /></SelectTrigger>
+          <Select value={watch("lotId") ?? ""} onValueChange={(value) => setValue("lotId", value || null)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sem lote" />
+            </SelectTrigger>
             <SelectContent>
-              {filteredLots.map((l) => <SelectItem key={l.id} value={l.id}>{l.code}</SelectItem>)}
+              {filteredLots.map((lot) => (
+                <SelectItem key={lot.id} value={lot.id}>
+                  {lot.code}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label="Sexo" required error={errors.sex?.message}>
-          <Select value={watch("sex")} onValueChange={(v) => setValue("sex", v as AnimalInput["sex"])}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={watch("sex")} onValueChange={(value) => setValue("sex", value as AnimalInput["sex"])}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="MALE">Macho</SelectItem>
               <SelectItem value="FEMALE">Fêmea</SelectItem>
             </SelectContent>
           </Select>
         </FormField>
+
         <FormField label="Categoria" required error={errors.category?.message}>
-          <Select value={watch("category")} onValueChange={(v) => setValue("category", v as AnimalInput["category"])}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select
+            value={watch("category")}
+            onValueChange={(value) => setValue("category", value as AnimalInput["category"])}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+              {CATEGORIES.map((category) => (
+                <SelectItem key={category.value} value={category.value}>
+                  {category.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </FormField>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label="Brinco / Tag" error={errors.tag?.message}>
           <Input {...register("tag")} placeholder="BR-0001" />
         </FormField>
@@ -105,9 +142,9 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
         </FormField>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <FormField label="Data de entrada" required error={errors.entryDate?.message}>
-          <DatePicker value={watch("entryDate")} onChange={(e) => setValue("entryDate", e.target.value)} />
+          <DatePicker value={watch("entryDate")} onChange={(event) => setValue("entryDate", event.target.value)} />
         </FormField>
         <FormField label="Peso entrada (kg)" error={errors.entryWeight?.message}>
           <Input type="number" step="0.1" {...register("entryWeight")} placeholder="280" />
@@ -118,11 +155,13 @@ export function AnimalForm({ farms, lots, onSuccess }: Props) {
       </div>
 
       <FormField label="Observações" error={errors.notes?.message}>
-        <Textarea {...register("notes")} rows={2} />
+        <Textarea {...register("notes")} rows={3} />
       </FormField>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onSuccess}>Cancelar</Button>
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" onClick={onSuccess}>
+          Cancelar
+        </Button>
         <Button type="submit" disabled={pending}>
           {pending ? "Salvando..." : "Cadastrar animal"}
         </Button>
